@@ -11,16 +11,25 @@
       <h1>Stockizi</h1>
       <p>La aplicación de escritorio está funcionando.</p>
       <p>El próximo paso será crear la primera pantalla de productos.</p>
-      
+      <form id="product-form">
+        <label for="product-name">Nombre</label>
+        <input id="product-name" type="text" required />
+
+        <label for="product-price">Precio</label>
+        <input id="product-price" type="number" min="0" required />
+        <label for="product-stock">Stock</label>
+        <input id="product-stock" type="number" min="0" required />
+
+        <button type="submit">Agregar producto</button>
+      </form>
+
       <button id="products-button" type="button">
         Ver productos
       </button>
 
-      <p id="message"></p>
-
+      <ul id="products-list"></ul>
     </main>
 
     <script src="renderer.js"></script>
-
   </body>
 </html>

@@ -12,17 +12,18 @@ body {
 }
 
 main {
-    width: min(520px, calc(100% - 48px));
-    padding: 48px;
-    border-radius: 20px;
-    background: white;
- box-shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
+  width: min(520px, calc(100% - 48px));
+  padding: 48px;
+  border-radius: 20px;
+  background: white;
+  box-shadow: 0 18px 50px rgba(23, 32, 51, 0.12);
 }
 
-h1 { 
-    margin-top: 0; 
+h1 {
+  margin-top: 0;
 }
-p { 
-    color: #516078; 
-    line-height: 1.6; 
+
+p {
+  color: #516078;
+  line-height: 1.6;
 }
