@@ -14,18 +14,22 @@
       <form id="product-form">
         <label for="product-name">Nombre</label>
         <input id="product-name" type="text" required />
-
         <label for="product-price">Precio</label>
-        <input id="product-price" type="number" min="0" required />
+        <input id="product-price" type="number" min="0" step="0.01" required />
+
         <label for="product-stock">Stock</label>
-        <input id="product-stock" type="number" min="0" required />
+        <input id="product-stock" type="number" min="0" step="0.001" required />
+
+        <label for="product-unit">Unidad de medida</label>
+        <select id="product-unit" required>
+          <option value="UNIT">Unidad</option>
+          <option value="KILOGRAM">Kilogramo</option>
+          <option value="METER">Metro</option>
+          <option value="LITER">Litro</option>
+        </select>
 
         <button type="submit">Agregar producto</button>
       </form>
-
-      <button id="products-button" type="button">
-        Ver productos
-      </button>
 
       <ul id="products-list"></ul>
     </main>

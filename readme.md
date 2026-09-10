@@ -1,6 +1,6 @@
 # STOCKIZI — Documento maestro del proyecto
 
-## 1. Objetivo del proyecto
+# 1. Objetivo del proyecto
 
 Estamos construyendo **Stockizi**, un programa de escritorio para controlar un negocio real.
 
@@ -21,28 +21,26 @@ La aplicación principal será de **escritorio**, pero tendrá una **interfaz we
 
 # 2. Arquitectura general prevista
 
-La idea final es:
+Arquitectura objetivo planificada:
 
 ```text
-                         STOCKIZI
-                            │
-                           API
-                            │
-                     Base de datos
-                       PostgreSQL
+🖥️ Aplicación PC                    📱 Web móvil privada
+Electron + React/TypeScript             React/TypeScript
+              │                           │
+              └─────────────┬─────────────┘
+                            ▼
+                       API / backend
                             │
               ┌─────────────┴─────────────┐
-              │                           │
               ▼                           ▼
-       🖥️ Aplicación PC              📱 Web móvil
-          Electron                     React
+     Base de datos PostgreSQL     Almacenamiento de fotos
 ```
 
 La PC y el celular deben trabajar con **los mismos datos**.
 
 No queremos una base de datos diferente en cada computadora.
 
-Esto permitirá que:
+La API será la única puerta de acceso a los datos compartidos. Esto permitirá que:
 
 * Se modifique un precio desde el celular.
 * La PC vea el cambio.
@@ -53,24 +51,28 @@ Esto permitirá que:
 
 ---
 
-# 3. Tecnologías previstas
+# 3. Tecnologías
 
-Tecnologías principales:
+Tecnologías implementadas actualmente:
 
 * Node.js
 * npm
-* TypeScript
-* React
 * Electron
-* PostgreSQL
-* API/backend
-* Más adelante posiblemente Prisma para trabajar con la base de datos.
+* HTML
+* CSS
+* JavaScript
+* Git y GitHub
 
-La aplicación de escritorio utilizará Electron.
+Tecnologías planificadas:
 
-La interfaz será desarrollada con React/TypeScript.
+* TypeScript.
+* React para la interfaz de escritorio y la web móvil.
+* API/backend todavía por definir en detalle.
+* PostgreSQL como base de datos central.
+* Almacenamiento central para fotos.
+* Posiblemente Prisma para acceder a PostgreSQL; esta elección todavía no está cerrada.
 
-La base de datos central será PostgreSQL.
+La versión actual con HTML, CSS y JavaScript es un prototipo de aprendizaje. La migración a React/TypeScript se hará de forma progresiva y explicada.
 
 ---
 
@@ -86,11 +88,16 @@ Actualmente contiene:
 
 ```text
 stockizi/
+├── .gitignore
+├── apuntes/
 ├── node_modules/
 ├── index.html
 ├── main.js
 ├── package-lock.json
 ├── package.json
+├── readme.md
+├── renderer.js
+├── styles.css
 └── stockizi.md
 ```
 
@@ -103,11 +110,20 @@ npm 11.19.0
 
 Electron ya fue instalado.
 
-Ya se consiguió ejecutar una primera ventana de Stockizi utilizando Electron.
+Estado comprobado:
 
-El usuario vio una ventana tipo launcher que correspondía a la aplicación que habíamos creado.
+* `npm start` abre la aplicación de escritorio.
+* Electron carga `index.html` desde `main.js`.
+* `styles.css` contiene la presentación visual.
+* `renderer.js` maneja la interacción de la pantalla.
+* La rama actual es `feature/productos-iniciales`.
+* Existe un formulario provisional de productos con nombre, precio, stock y unidad.
+* Los productos temporales se muestran con moneda argentina y cantidades de hasta tres decimales.
+* No existe todavía base de datos: los productos agregados se pierden al cerrar la aplicación.
+* No hay pruebas automatizadas configuradas.
+* React, TypeScript, API, PostgreSQL y la interfaz móvil aún no están implementados.
 
-Todavía es una versión inicial/básica.
+`node_modules/` está instalado localmente y excluido de Git. Los nuevos archivos dentro de `apuntes/` también están ignorados; los apuntes que ya habían sido confirmados antes continúan registrados en el historial.
 
 ---
 
@@ -115,32 +131,96 @@ Todavía es una versión inicial/básica.
 
 No queremos hacer todo de golpe.
 
-Orden aproximado:
+Hoja de ruta aproximada:
 
 ```text
-1. Electron / aplicación de escritorio
-2. React + TypeScript
-3. Interfaz inicial
-4. Base de datos
-5. Productos
-6. Distribuidores
-7. Compras
-8. Stock
-9. Ventas
-10. Pagos
-11. Caja
-12. Presupuestos
-13. Gastos
-14. Reportes/estadísticas
-15. Cuenta corriente
-16. Actualización de precios
-17. Interfaz móvil
-18. Usuarios/permisos
-19. Copias de seguridad
-20. Empaquetado/instalador
+FASE 0 — Fundamentos (COMPLETADA)
+Electron, npm, archivos principales, CSS separado y flujo Git/GitHub.
+
+FASE 1 — Prototipo de aprendizaje (EN CURSO)
+JavaScript, formulario de productos, unidades y navegación inicial.
+
+FASE 2 — Base técnica de la interfaz (PLANIFICADA)
+React, TypeScript, componentes, navegación y estructura del proyecto.
+
+FASE 3 — Datos centrales (PLANIFICADA)
+API, PostgreSQL, persistencia, productos, stock y distribuidores.
+
+FASE 4 — Operación comercial (PLANIFICADA)
+Compras, ventas, pagos, presupuestos y cuenta corriente.
+
+FASE 5 — Dinero y control (PLANIFICADA)
+Caja, gastos, retiros, reservas, cierre y resumen diario.
+
+FASE 6 — Acceso móvil y colaboración (PLANIFICADA)
+Web privada, tareas, actualización de precios y carga de fotos.
+
+FASE 7 — Seguridad y entrega (PLANIFICADA)
+Usuarios, permisos, copias de seguridad, pruebas, instalador y despliegue.
 ```
 
 El orden puede cambiar si durante el desarrollo encontramos una razón técnica para hacerlo.
+
+## 5.1. Navegación prevista
+
+La aplicación de escritorio utilizará una barra lateral para poder crecer sin acumular demasiadas pestañas horizontales.
+
+Organización inicial:
+
+```text
+STOCKIZI
+
+OPERACIÓN DIARIA
+├── Inicio
+├── Nueva venta
+├── Productos
+└── Caja
+
+GESTIÓN
+├── Compras
+├── Distribuidores
+├── Clientes
+├── Cuenta corriente
+├── Presupuestos
+└── Gastos
+
+ANÁLISIS
+├── Historial
+├── Reportes
+└── Resumen diario
+
+SISTEMA
+├── Usuarios
+└── Configuración
+```
+
+Responsabilidades principales:
+
+* `Inicio`: resumen del día, estado de caja, tareas pendientes y alertas de stock.
+* `Nueva venta`: carrito, búsqueda de productos, cantidades, precios y pagos.
+* `Productos`: catálogo, precios, stock, unidades, fotos y códigos.
+* `Caja`: apertura, movimientos, retiros, reservas y cierre.
+* `Compras`: ingreso de mercadería y actualización de costos.
+* `Distribuidores`: proveedores y productos asociados.
+* `Clientes`: información necesaria de clientes.
+* `Cuenta corriente`: deudas y cobros posteriores.
+* `Presupuestos`: operaciones que todavía no son ventas.
+* `Gastos`: egresos del negocio.
+* `Historial`: operaciones anteriores.
+* `Reportes`: estadísticas, rentabilidad e información de Posnet/ARCA.
+* `Usuarios`: empleados, acceso y permisos.
+* `Configuración`: redondeo, datos del negocio y preferencias.
+
+No se usará una única sección genérica llamada `Contabilidad`, porque caja, gastos, compras, cuenta corriente y reportes representan conceptos diferentes. Pueden agruparse visualmente sin mezclar su lógica.
+
+La primera navegación funcional se centrará en:
+
+```text
+Inicio
+Nueva venta
+Productos
+Caja
+```
 
 ---
 
@@ -189,17 +269,23 @@ Stockizi debe permitir:
 * Eliminar/desactivar productos.
 * Buscar productos.
 * Buscar por nombre.
-* Buscar por código de barras.
+* Buscar por cualquiera de los códigos de barras asociados a un producto.
+* Filtrar productos por rubro o categoría.
+* Ofrecer una búsqueda visual por nombre y foto para agilizar ventas y cambios de precio.
 * Controlar stock.
+* Manejar productos por unidad, peso, longitud o volumen.
+* Permitir ventas con stock insuficiente, mostrando una advertencia y conservando el stock negativo.
 * Avisar cuando un producto tiene poco stock.
 * Mostrar foto del producto.
 * Poder ampliar/ver la foto del producto.
+* Filtrar productos que todavía no tienen foto.
 * Asociar productos a distribuidores.
 * Actualizar precios individualmente.
 * Actualizar precios de varios productos.
 * Aumentar precios por cantidad fija.
 * Aumentar precios por porcentaje.
 * Actualizar precios desde el celular.
+* Crear y completar recordatorios de actualización.
 * Ver productos de un distribuidor.
 * Registrar compras.
 * Registrar pagos a proveedores.
@@ -227,17 +313,25 @@ Stockizi debe permitir:
 Los campos definidos para `Product` son:
 
 ```text
+id
 name
 description
 costPrice
-markup / salePercentage
+markupPercentage
 salePrice
-margin
-code
+margin (calculado)
+barcodes
 supplierId
+categoryId
+stock
+unit
+lowStockThreshold
 wholesaleMinimumQuantity
 wholesalePrice
-photo
+photoReference
+active
+createdAt
+updatedAt
 ```
 
 El usuario originalmente los definió como:
@@ -249,7 +343,7 @@ precio de costo
 porcentaje de venta
 precio de venta
 margen
-código
+código o códigos
 distribuidor
 xmayo
 precio xmayor
@@ -261,14 +355,177 @@ Interpretación:
 * `name`: nombre del producto.
 * `description`: descripción.
 * `costPrice`: precio/costo actual.
-* `markup`: porcentaje que se agrega al costo para calcular venta.
+* `markupPercentage`: porcentaje que se agrega al costo para calcular venta.
 * `salePrice`: precio de venta actual.
-* `margin`: margen.
-* `code`: código de barras/código del producto.
-* `supplierId`: distribuidor asociado.
+* `margin`: valor calculado para reportes; queda por decidir si también debe persistirse.
+* `barcodes`: colección de códigos que permiten encontrar el mismo producto.
+* `supplierId`: distribuidor asociado en el modelo inicial; la relación definitiva está por decidir.
+* `categoryId`: rubro o categoría principal del producto.
+* `stock`: cantidad disponible del producto. Debe admitir decimales.
+* `unit`: unidad de medida utilizada para interpretar el stock y las cantidades.
+* `lowStockThreshold`: cantidad a partir de la cual se muestra una alerta de stock bajo.
 * `wholesaleMinimumQuantity`: cantidad desde la que empieza el precio mayorista.
 * `wholesalePrice`: precio por mayor.
-* `photo`: foto del producto.
+* `photoReference`: URL o clave que permite localizar la foto fuera de la tabla del producto.
+* `active`: permite desactivar el producto sin perder su historial.
+* `createdAt` y `updatedAt`: fechas de creación y última actualización.
+
+## 8.1. Stock y unidades de medida
+
+El stock no siempre representa unidades enteras. Algunos productos pueden venderse por peso, longitud o volumen.
+
+Ejemplos:
+
+```text
+10 unidades
+1,200 kilogramos
+3,500 metros
+2,250 litros
+```
+
+La precisión depende de la unidad:
+
+* `UNIT`: solo admite cantidades enteras. No es válido tener `1,4` cajas o `2,5` unidades.
+* `KILOGRAM`: admite hasta tres decimales. `1,200 kg` representa 1 kilo y 200 gramos.
+* `METER`: admite hasta tres decimales.
+* `LITER`: admite hasta tres decimales.
+
+La interfaz y el backend deben validar esta regla; no alcanza con cambiar el `step` visual del campo.
+
+Unidades iniciales previstas:
+
+```text
+UNIT
+KILOGRAM
+METER
+LITER
+```
+
+La lista podrá ampliarse si el negocio incorpora otras formas de venta.
+
+En la interfaz se mostrarán abreviaturas fáciles de leer:
+
+```text
+UNIT      → un.
+KILOGRAM  → kg
+METER     → m
+LITER     → l
+```
+
+Las cantidades de compras (`PurchaseItem.quantity`) y ventas (`SaleItem.quantity`) deben respetar la unidad del producto. Serán enteras para `UNIT` y podrán ser decimales para peso, longitud o volumen.
+
+En PostgreSQL se utilizará un tipo decimal exacto, por ejemplo:
+
+```text
+NUMERIC(12, 3)
+```
+
+No se utilizará un tipo de coma flotante para cantidades comerciales, con el fin de evitar errores de precisión.
+
+## 8.2. Fotos de productos
+
+La foto ayudará a identificar un producto cuando el nombre o el código no sean suficientes.
+
+La aplicación debe permitir:
+
+* Cargar o reemplazar una foto desde la PC.
+* Tomar una foto o elegirla desde el celular.
+* Ver una lista filtrada de productos que todavía no tienen foto.
+* Ampliar la imagen desde la ficha o la búsqueda del producto.
+* Mostrar una imagen indicativa cuando el producto no tenga foto.
+
+La interfaz móvil tendrá una acción rápida llamada `Productos sin foto`. El flujo esperado será:
+
+```text
+Productos sin foto
+↓
+Elegir producto
+↓
+Abrir cámara o galería
+↓
+Confirmar imagen
+↓
+La foto queda disponible en PC y celular
+```
+
+Para mantener el sistema escalable, la base de datos no guardará inicialmente el archivo pesado dentro de `Product`. Guardará una referencia como una URL o clave de almacenamiento. La imagen se almacenará en un servicio o espacio central compartido, con compresión y una miniatura para las listas. La tecnología concreta de almacenamiento se decidirá antes de implementar esta función.
+
+## 8.3. Códigos de barras y variantes
+
+Un producto podrá tener más de un código de barras. Esto cubre, entre otros casos, el mismo artículo comprado en lugares diferentes con códigos distintos.
+
+No se guardarán todos los códigos en un único texto dentro de `Product`. Se utilizará una relación conceptual:
+
+```text
+Product
+   ↓
+ProductBarcode
+--------------
+id
+productId
+code
+label       opcional
+active
+```
+
+Ejemplo actual:
+
+```text
+Producto: Caja organizadora mediana
+
+7790000000110 → Código del proveedor A
+7790000000127 → Código del proveedor B
+```
+
+Todos los códigos permiten encontrar el mismo producto y comparten su precio y stock.
+
+Cada código debe ser único dentro de Stockizi para evitar que un escaneo encuentre dos productos diferentes.
+
+El alcance inicial no manejará stock separado por color o presentación. Esa posibilidad queda registrada como idea futura mediante variantes de producto.
+
+## 8.4. Rubros, categorías y búsqueda visual
+
+Los productos podrán organizarse inicialmente en rubros como:
+
+```text
+Repostería
+Papelería
+Cotillón
+```
+
+Se utilizará una entidad separada para no guardar el nombre del rubro repetido dentro de cada producto:
+
+```text
+Category
+--------
+id
+name
+parentId    opcional
+active
+createdAt
+updatedAt
+```
+
+`parentId` permitirá crear subcategorías en el futuro sin cambiar el modelo. Por ejemplo:
+
+```text
+Cotillón
+├── Globos
+├── Velas
+└── Decoración
+```
+
+La primera versión puede utilizar solamente categorías principales. No será obligatorio crear subcategorías desde el comienzo.
+
+La sección `Productos` permitirá:
+
+* Elegir un rubro.
+* Buscar por parte del nombre.
+* Buscar por cualquiera de sus códigos.
+* Ver resultados con nombre, foto, precio y stock.
+* Abrir rápidamente el producto para modificar precio u otros datos.
+
+La sección `Nueva venta` reutilizará la misma búsqueda rápida. Además del lector de código de barras, el empleado podrá elegir rubro y reconocer el producto por nombre y foto. La presentación visual debe priorizar velocidad y botones fáciles de seleccionar.
 
 ---
 
@@ -289,6 +546,23 @@ $2.000 × 1,30 = $2.600
 Esto es diferente de calcular un margen porcentual sobre el precio final.
 
 El porcentaje de venta representa cuánto se agrega sobre el costo.
+
+Al crear o editar un producto, Stockizi calculará un precio de venta sugerido:
+
+```text
+salePrice = costPrice × (1 + markupPercentage / 100)
+```
+
+El precio sugerido podrá corregirse manualmente antes de guardar. También se permitirá modificar el precio aplicado durante una venta cuando el negocio lo necesite.
+
+Para conservar la auditoría, una venta deberá distinguir entre:
+
+```text
+precio de lista
+precio realmente aplicado
+```
+
+Queda por decidir qué permisos o motivo se exigirán para modificar manualmente un precio durante una venta.
 
 ---
 
@@ -477,12 +751,66 @@ Funciones especialmente importantes desde celular:
 * Actualizar precios.
 * Actualizar productos.
 * Aumentar precios de productos de un distribuidor.
+* Crear recordatorios para actualizar productos o precios.
+* Consultar y completar tareas pendientes.
+* Ver productos sin foto y agregarles una imagen usando la cámara o galería.
 * Ver stock.
 * Ver productos con stock bajo.
 * Ver caja.
 * Registrar gastos.
 * Consultar ventas.
 * Consultar información del negocio.
+
+## 15.1. Recordatorios y tareas pendientes
+
+Stockizi tendrá una bandeja de tareas visible desde el celular y desde el inicio de la aplicación de escritorio.
+
+Casos iniciales:
+
+```text
+Recordar actualizar precios de un distribuidor
+Recordar revisar uno o varios productos
+Completar fotos faltantes
+Revisar productos con stock bajo
+```
+
+Una tarea podrá ser general o estar relacionada con un producto o distribuidor. Estructura conceptual inicial:
+
+```text
+Task
+----
+id
+type
+title
+note
+productId       opcional
+supplierId      opcional
+dueAt           opcional
+status
+createdAt
+completedAt     opcional
+createdByUserId
+```
+
+Tipos iniciales posibles:
+
+```text
+PRODUCT_UPDATE
+PRICE_UPDATE
+MISSING_PHOTO
+LOW_STOCK_REVIEW
+OTHER
+```
+
+Estados iniciales:
+
+```text
+PENDING
+COMPLETED
+CANCELLED
+```
+
+Primero se implementará la bandeja de tareas dentro de Stockizi. Las notificaciones automáticas del teléfono se evaluarán más adelante, porque requieren permisos, horarios y una tecnología de notificaciones que todavía no fue elegida.
 
 ---
 
@@ -523,6 +851,17 @@ quantity
 unitCost
 subtotal
 ```
+
+En el alcance inicial, las compras se cargarán directamente en la unidad base de stock del producto, aunque físicamente se hayan comprado bultos.
+
+Ejemplos:
+
+```text
+1 bulto con 12 cajas → cargar quantity = 12 UNIT
+1 bolsa de 25 kg     → cargar quantity = 25 KILOGRAM
+```
+
+La conversión automática de bultos a unidades queda como idea futura. De esta manera el modelo inicial es simple y el stock conserva una unidad coherente.
 
 ---
 
@@ -597,15 +936,56 @@ Una venta contiene uno o varios `SaleItem`.
 ```text
 productId
 quantity
+listUnitPrice
 unitPrice
 subtotal
+priceEntryMode
 ```
+
+* `quantity`: cantidad expresada en la unidad principal del producto.
+* `listUnitPrice`: precio de lista por unidad principal al momento de vender.
+* `unitPrice`: precio por unidad principal realmente aplicado.
+* `subtotal`: importe final de ese renglón.
+* `priceEntryMode`: indica si la operación se inició ingresando cantidad o importe.
 
 También es recomendable guardar el costo al momento de la venta para poder calcular rentabilidad histórica correctamente:
 
 ```text
 unitCost
 ```
+
+## 19.1. Venta por peso
+
+Para un producto cuya unidad sea `KILOGRAM`, el precio de venta se interpreta como precio por kilogramo.
+
+Al seleccionar el producto durante una venta, la interfaz permitirá ingresar:
+
+```text
+gramos o kilogramos
+importe total
+```
+
+Los campos estarán relacionados. Si se ingresa la cantidad, Stockizi calcula el importe:
+
+```text
+Precio por kg: $4.000
+Cantidad: 300 g = 0,300 kg
+Importe: $1.200
+```
+
+Si se ingresa el importe, Stockizi calcula la cantidad correspondiente:
+
+```text
+Precio por kg: $4.000
+Importe pedido: $1.000
+Cantidad: 250 g = 0,250 kg
+```
+
+El stock siempre se descontará usando la unidad principal del producto. En el ejemplo anterior se descontará `0,250 kg`, aunque el usuario haya escrito `$1.000`.
+
+La base de datos guardará la cantidad normalizada en kilogramos, el precio de lista, el precio aplicado y el subtotal. No será necesario guardar una existencia separada en gramos.
+
+La misma idea podrá aplicarse posteriormente a metros y litros. Las reglas exactas de redondeo entre cantidad e importe deben definirse antes de implementar ventas reales.
 
 ---
 
@@ -622,6 +1002,31 @@ Cuando se confirma una venta normal:
 6. Aumentan las estadísticas.
 7. Aparece en el historial.
 ```
+
+## 20.1. Venta sin stock disponible
+
+Stockizi permitirá confirmar una venta aunque no haya stock suficiente. La operación no se bloqueará.
+
+Ejemplo:
+
+```text
+Stock actual: 0 un.
+Cantidad vendida: 1 un.
+Stock resultante: -1 un.
+```
+
+Antes de confirmar, la interfaz debe advertir claramente que la venta dejará stock negativo. Si el usuario continúa:
+
+```text
+1. Se confirma la venta normalmente.
+2. El stock queda negativo.
+3. Se registra el movimiento que produjo el faltante.
+4. El producto aparece en alertas y tareas de regularización.
+```
+
+El stock negativo no debe corregirse silenciosamente ni convertirse automáticamente en cero, porque eso ocultaría la diferencia real. Cuando se reponga o ajuste el producto, el historial debe permitir entender cómo volvió a una cantidad correcta.
+
+Queda por decidir si cualquier usuario podrá confirmar la advertencia o si ciertos roles necesitarán permiso especial.
 
 ---
 
@@ -1080,7 +1485,7 @@ No asumir que el usuario ya sabe estos conceptos.
 
 # 37. Punto exacto donde quedamos
 
-Ya tenemos el proyecto inicial funcionando con Electron.
+Ya tenemos el proyecto inicial funcionando con Electron y el código se guarda en un repositorio Git/GitHub.
 
 La carpeta real es:
 
@@ -1091,40 +1496,85 @@ C:\Users\ezema\Desktop\stockizi
 Archivos existentes:
 
 ```text
-node_modules/
+.gitignore
+apuntes/              ignorado para nuevos archivos locales
 index.html
 main.js
 package-lock.json
 package.json
+readme.md
+renderer.js
+styles.css
 stockizi.md
+node_modules/         instalado localmente e ignorado por Git
 ```
 
 Electron ya está instalado.
 
-Ya se ejecutó una primera ventana de Stockizi.
+Estado funcional actual:
 
-El próximo paso recomendado es **inspeccionar el `main.js`, `index.html` y `package.json` existentes**, explicar qué hace cada uno y después comenzar a transformar esa versión básica en una aplicación estructurada con TypeScript/React.
+* La ventana de escritorio abre correctamente con `npm start`.
+* El CSS está separado de `index.html` en `styles.css`.
+* `renderer.js` controla la interacción de la interfaz.
+* Existe un formulario provisional para agregar productos con nombre, precio, stock y unidad de medida.
+* Los productos se guardan temporalmente en un array y se muestran en una lista.
+* El nombre, precio, stock y unidad se leen desde el formulario.
+* El campo provisional de stock admite hasta tres decimales mediante `step="0.001"`.
+* Todavía falta impedir cantidades decimales cuando la unidad seleccionada sea `UNIT`.
+* Los precios se muestran con formato de pesos argentinos.
+* Las unidades usan códigos internos (`UNIT`, `KILOGRAM`, `METER`, `LITER`) y etiquetas visibles (`un.`, `kg`, `m`, `l`).
+* Los productos temporales se pierden al cerrar la aplicación porque todavía no existe persistencia.
+* Ya se practicó un flujo completo de rama, commit, push, Pull Request, merge y pull.
+
+Trabajo en curso:
+
+```text
+Rama: feature/productos-iniciales
+```
+
+Próximo paso recomendado:
+
+* Revisar y ordenar el HTML y JavaScript del prototipo de productos.
+* Separar costo, markup y precio de venta en el formulario provisional.
+* Calcular un precio sugerido y permitir su edición manual.
+* Validar que `UNIT` use stock entero y que las demás unidades admitan decimales.
+* Crear la estructura visual inicial con barra lateral y área de contenido.
+* Preparar la migración didáctica a React y TypeScript sin perder lo aprendido.
+
+React, TypeScript, la API y PostgreSQL todavía no están implementados. Se incorporarán progresivamente cuando la base necesaria esté comprendida y definida.
 
 NO volver a instalar Electron si ya está instalado.
 
-NO crear otro proyecto desde cero sin revisar primero el proyecto existente.
+NO crear otro proyecto desde cero sin evaluar primero el estado y la arquitectura existentes.
 
 ---
 
-# 38. Regla importante para continuar
+# 38. Uso del documento maestro
 
-Antes de modificar archivos existentes, comprobar qué contienen.
+Este README es el documento maestro y el prototipo funcional de Stockizi. Su objetivo es conservar el contexto del proyecto para poder retomarlo, revisarlo y mejorarlo sin depender de la memoria de una conversación.
 
-El usuario quiere entender lo que está pasando, por lo que primero explicar:
+Debe diferenciar claramente:
 
 ```text
-qué tenemos
-qué hace
-qué falta
-qué vamos a cambiar
+IMPLEMENTADO   → existe y fue comprobado en el programa
+EN CURSO       → se está desarrollando actualmente
+PLANIFICADO    → fue acordado, pero todavía no está implementado
+POR DECIDIR    → necesita una decisión antes de desarrollarse
 ```
 
-y luego implementar.
+El documento es vivo: puede modificarse cuando cambie una decisión, se encuentre una solución mejor, se agregue o descarte una función o el código avance.
+
+Reglas para mantenerlo útil:
+
+* Registrar decisiones importantes y explicar su motivo.
+* Mantener actualizado el punto exacto del desarrollo.
+* No presentar una función planificada como si ya existiera.
+* Revisar el impacto de una decisión en PC, celular, API y base de datos.
+* Evitar convertirlo en una copia completa del código.
+* Conservar los conceptos centrales del negocio aunque cambien las tecnologías.
+* Evaluar en conjunto las decisiones que afecten la arquitectura, los datos o el funcionamiento real del negocio.
+
+Las instrucciones didácticas pertenecen a la dinámica de aprendizaje y no deben mezclarse con la especificación funcional, salvo el objetivo general de aprender programación mientras se construye Stockizi.
 
 ---
 
@@ -1132,6 +1582,92 @@ y luego implementar.
 
 El programa se llama:
 
-# STOCKIZI
+**STOCKIZI**
 
 Ese nombre debe utilizarse en el proyecto, interfaz y documentación.
+
+---
+
+# 40. Decisiones pendientes
+
+Estas decisiones afectan la arquitectura o los datos y deben evaluarse antes de implementar las áreas correspondientes.
+
+## 40.1. Producto y stock
+
+* Definir si un producto puede tener un solo distribuidor o varios distribuidores con costos y códigos diferentes.
+* Definir el orden exacto entre cálculo, redondeo configurable y corrección manual del precio de venta.
+* Definir si el margen se guarda o se calcula para cada consulta y reporte.
+* Diseñar un historial de movimientos de stock para poder auditar entradas, ventas, ajustes y pérdidas.
+* Definir si habrá un único depósito/local o stock separado por ubicación en el futuro.
+
+## 40.2. Backend y datos
+
+* Elegir el framework del backend/API.
+* Confirmar si se utilizará Prisma para trabajar con PostgreSQL.
+* Elegir dónde se alojarán la API, PostgreSQL y las fotos.
+* Definir copias de seguridad, restauración y conservación del historial.
+* Definir el comportamiento cuando una PC pierda temporalmente la conexión.
+
+## 40.3. Operaciones comerciales
+
+* Precisar cómo se relacionan los pagos con ventas, compras y cobros de cuenta corriente.
+* Definir las reglas exactas para pagos parciales y deudas futuras con proveedores.
+* Definir cómo se corrige una venta sin perder la auditoría de la operación original.
+* Diseñar la integración o exportación necesaria para Posnet/ARCA.
+
+## 40.4. Acceso y comunicación
+
+* Definir autenticación, permisos y recuperación de acceso.
+* Definir permisos para vender con stock insuficiente y modificar manualmente precios durante una venta.
+* Elegir la tecnología de notificaciones para recordatorios móviles.
+* Definir límites, formatos, compresión y privacidad de las fotos.
+
+Estas cuestiones figuran como `POR DECIDIR`; no deben asumirse como implementadas ni resolverse de manera accidental durante una pantalla provisional.
+
+---
+
+# 41. Ideas futuras
+
+Estas ideas pueden aportar valor cuando el negocio o el sistema crezcan, pero quedan fuera del alcance actual para evitar complejidad prematura.
+
+## 41.1. Variantes con stock propio
+
+Permitir que un producto comparta nombre y precio general, pero tenga variantes con stock separado.
+
+Ejemplo:
+
+```text
+Caja organizadora mediana
+├── Verde    → 5 unidades
+├── Azul     → 8 unidades
+└── Celeste  → 7 unidades
+```
+
+Una estructura futura podría ser:
+
+```text
+Product
+   ↓
+ProductVariant
+--------------
+id
+productId
+name o attributes
+stock
+active
+```
+
+Los códigos de barras podrían asociarse a una variante concreta. Antes de implementarlo habrá que decidir si el precio también puede variar por color o presentación.
+
+## 41.2. Conversión de bultos en compras
+
+Permitir registrar la presentación de compra y convertirla automáticamente a la unidad base de stock.
+
+Ejemplos:
+
+```text
+2 bultos × 12 unidades = 24 UNIT
+3 bolsas × 25 kg       = 75 KILOGRAM
+```
+
+Hasta que esta función sea necesaria, el usuario cargará directamente `24 UNIT` o `75 KILOGRAM` en la compra.
