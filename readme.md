@@ -4,16 +4,9 @@
 
 Estamos construyendo **Stockizi**, un programa de escritorio para controlar un negocio real.
 
-El objetivo del usuario NO es solamente obtener el programa terminado: quiere **aprender programación mientras construimos un programa que realmente funcione**.
+La prioridad es construir una aplicación funcional que ayude al negocio del usuario y su mamá. También quiere **aprender programación mientras se construye el programa real**; el aprendizaje debe acompañar el avance, no convertirse en una condición que lo frene.
 
-Por eso el desarrollo debe hacerse de forma didáctica:
-
-* Explicar qué estamos haciendo.
-* Explicar para qué sirve cada archivo.
-* Explicar los conceptos nuevos.
-* Evitar simplemente entregar enormes bloques de código sin explicación.
-* Construir el programa progresivamente.
-* Probar cada parte antes de avanzar.
+El desarrollo será progresivo y explicado. La dinámica de trabajo y aprendizaje se describe en [DESARROLLO.md](DESARROLLO.md).
 
 La aplicación principal será de **escritorio**, pero tendrá una **interfaz web privada para administrar ciertas cosas desde el celular**.
 
@@ -90,9 +83,12 @@ Actualmente contiene:
 stockizi/
 ├── .gitignore
 ├── apuntes/
+├── tests/
 ├── node_modules/
+├── DESARROLLO.md
 ├── index.html
 ├── main.js
+├── navigation.js
 ├── package-lock.json
 ├── package.json
 ├── readme.md
@@ -116,11 +112,13 @@ Estado comprobado:
 * Electron carga `index.html` desde `main.js`.
 * `styles.css` contiene la presentación visual.
 * `renderer.js` maneja la interacción de la pantalla.
+* Productos permite asignar rubros (Repostería, Papelera y Cotillón), buscar por nombre sin distinguir mayúsculas ni tildes, y combinar la búsqueda con un filtro por rubro. Los artículos sin clasificar quedan como `Sin rubro`.
+* `navigation.js` conecta Inicio, Nueva venta, Productos y Caja en una barra lateral. Inicio muestra el estado del prototipo; Ventas y Caja todavía son secciones informativas pendientes de implementación.
 * La rama actual es `feature/productos-iniciales`.
-* Existe un formulario provisional de productos con nombre, precio, stock y unidad.
+* Existe un formulario provisional de productos con nombre, costo, markup, precio de venta, stock y unidad.
 * Los productos temporales se muestran con moneda argentina y cantidades de hasta tres decimales.
 * No existe todavía base de datos: los productos agregados se pierden al cerrar la aplicación.
-* No hay pruebas automatizadas configuradas.
+* `npm test` ejecuta pruebas automáticas del cálculo, validación y guardado provisional mediante Node.js, sin abrir Electron.
 * React, TypeScript, API, PostgreSQL y la interfaz móvil aún no están implementados.
 
 `node_modules/` está instalado localmente y excluido de Git. Los nuevos archivos dentro de `apuntes/` también están ignorados; los apuntes que ya habían sido confirmados antes continúan registrados en el historial.
@@ -160,6 +158,8 @@ Usuarios, permisos, copias de seguridad, pruebas, instalador y despliegue.
 ```
 
 El orden puede cambiar si durante el desarrollo encontramos una razón técnica para hacerlo.
+
+Las fases indican un orden de construcción, no versiones automáticamente listas para usar en el negocio. Pruebas, integridad de datos, seguridad y copias de respaldo se incorporarán durante el desarrollo de las funciones correspondientes, no solamente al final.
 
 ## 5.1. Navegación prevista
 
@@ -221,6 +221,52 @@ Nueva venta
 Productos
 Caja
 ```
+
+Estas cuatro secciones son un punto de partida para desarrollar la interfaz, no el alcance completo de la primera versión operativa.
+
+## 5.2. Alcance para incorporar Stockizi al negocio
+
+El prototipo de aprendizaje y una versión operativa son cosas diferentes. No se considerará suficiente una versión pequeña que omita tareas indispensables del negocio.
+
+El alcance operativo debe contrastarse con los requisitos de este documento y con la aplicación que ya se usa. Incluye casi todas las funciones de negocio ya nombradas:
+
+* Productos, rubros, múltiples códigos, fotos, unidades y control de stock.
+* Costos, markup, redondeo, precios minoristas/mayoristas y actualización individual o masiva.
+* Distribuidores, compras e ingreso de mercadería.
+* Ventas, carrito, búsqueda rápida, venta por peso, modificación manual de precios y advertencia de stock negativo.
+* Pagos por distintos medios, pagos combinados, historial y correcciones auditables.
+* Presupuestos, clientes y cuenta corriente.
+* Apertura/cierre de caja, movimientos, gastos, retiros, reservas y resumen diario.
+* Reportes y la información necesaria para el flujo de Posnet/ARCA.
+* Acceso móvil administrativo, tareas pendientes y carga de fotos según las necesidades acordadas.
+* Persistencia confiable, respaldo y acceso seguro para la forma real de trabajo.
+
+Antes de poner Stockizi en uso se verificará cada tarea indispensable mediante escenarios reales, incluidos errores y correcciones. No se inventarán requisitos faltantes ni se eliminarán funciones necesarias para reducir artificialmente el alcance.
+
+La aplicación actual y sus secciones ya fueron identificadas por el usuario; se describen en la sección 5.3. Todavía debe decidirse si Stockizi la reemplazará o la complementará y qué migración o convivencia será necesaria.
+
+Una web pública de compras y otras expansiones no necesarias para la operación actual pueden quedar para el futuro. Las variantes por color y la conversión automática de bultos siguen en la sección de ideas futuras por decisión del usuario.
+
+## 5.3. Sistema actual y transición
+
+Información confirmada por el usuario:
+
+* El negocio usa StockFácil de [VP Sistemas](https://www.vpsistemas.com/).
+* Actualmente trabajan con una computadora.
+* El programa permite exportar o trasladar productos mediante Excel.
+* Las secciones identificadas son: artículos, proveedores, clientes, ventas, caja, estadísticas, gastos y contabilidad.
+
+El alcance deseado y los cambios respecto al sistema actual siguen siendo los descritos en este README. El usuario continuará completándolo para ordenar productos y contabilidad; los nombres de las secciones de StockFácil no obligan a copiar su organización ni confirman todos sus detalles operativos.
+
+Pendientes antes de diseñar una importación o transición:
+
+* Revisar un Excel real: hojas, columnas, tipos, identificadores y formatos.
+* Comprobar si la exportación incluye stock, costos, precios y códigos; todavía no está confirmado.
+* Comprobar si pueden exportarse clientes, proveedores, deudas o historial; no se presupone esa capacidad.
+* Decidir qué información se migrará y cómo se validará, sin sobrescribir datos reales accidentalmente.
+* Definir reemplazo o convivencia con StockFácil y las tareas indispensables para poner Stockizi en uso.
+
+La exportación a Excel está confirmada por el usuario, pero su formato y contenido no fueron inspeccionados. No se atribuye información a capturas o archivos que todavía no se hayan revisado.
 
 ---
 
@@ -554,6 +600,8 @@ salePrice = costPrice × (1 + markupPercentage / 100)
 ```
 
 El precio sugerido podrá corregirse manualmente antes de guardar. También se permitirá modificar el precio aplicado durante una venta cuando el negocio lo necesite.
+
+En el formulario de productos, editar manualmente el precio de venta actualiza el porcentaje sobre costo: `((salePrice - costPrice) / costPrice) × 100`. Por ejemplo, costo $1.220 y venta $1.900 muestran aproximadamente 55,74 %. El porcentaje se muestra con dos decimales sin recalcular ni alterar el precio manual. Con costo cero este porcentaje no puede calcularse: el campo queda vacío para no mostrar un valor falso.
 
 Para conservar la auditoría, una venta deberá distinguir entre:
 
@@ -1372,7 +1420,7 @@ La parte específica de integración con ARCA se diseñará más adelante.
 
 # 33. Multi-PC
 
-Stockizi debe poder utilizarse en más de una PC.
+Actualmente el negocio utiliza una computadora. Stockizi debe permitir trabajar con dos o tres computadoras y acceso administrativo desde el celular, compartiendo la misma información.
 
 La idea final es:
 
@@ -1380,6 +1428,8 @@ La idea final es:
 PC 1 ─────┐
           │
 PC 2 ─────┼──── API ──── PostgreSQL
+          │
+PC 3 ─────┤
           │
 Celular ──┘
 ```
@@ -1452,9 +1502,9 @@ PRODUCT ────────────────┤
 
 # 36. Objetivo de aprendizaje
 
-El usuario quiere aprender programación mientras construimos el proyecto.
+El usuario tiene una base y quiere aprender programación mientras construimos el proyecto, priorizando una aplicación útil para el negocio. No es necesario que pueda escribir cada función desde cero para que el proyecto avance.
 
-Por lo tanto, cuando se agregue código, explicar conceptos como:
+Los conceptos se explicarán sobre el código real cuando aparezcan, con profundidad proporcional a lo que necesite comprender:
 
 * Variables.
 * Funciones.
@@ -1479,7 +1529,7 @@ Por lo tanto, cuando se agregue código, explicar conceptos como:
 * Seguridad.
 * Autenticación.
 
-No asumir que el usuario ya sabe estos conceptos.
+Se calibrará lo que ya conoce para evitar repetir fundamentos innecesariamente. Los ejercicios y cambios pequeños se utilizarán cuando ayuden, sin convertir cada paso en una clase larga. La dinámica concreta se mantiene en [DESARROLLO.md](DESARROLLO.md).
 
 ---
 
@@ -1497,9 +1547,12 @@ Archivos existentes:
 
 ```text
 .gitignore
+DESARROLLO.md
 apuntes/              ignorado para nuevos archivos locales
+tests/renderer.test.cjs
 index.html
 main.js
+navigation.js
 package-lock.json
 package.json
 readme.md
@@ -1516,11 +1569,17 @@ Estado funcional actual:
 * La ventana de escritorio abre correctamente con `npm start`.
 * El CSS está separado de `index.html` en `styles.css`.
 * `renderer.js` controla la interacción de la interfaz.
-* Existe un formulario provisional para agregar productos con nombre, precio, stock y unidad de medida.
+* El catálogo permite filtrar por nombre y rubro, muestra la cantidad de resultados y permite limpiar filtros. Agregar un producto limpia los filtros para que se vea la nueva carga. La búsqueda visual con fotos y los múltiples códigos todavía están pendientes.
+* La navegación lateral cambia la sección visible sin recrear el formulario ni perder productos durante la sesión. `navigation.js` se encarga de ese comportamiento.
+* Existe un formulario provisional para agregar productos con nombre, costo, markup, precio de venta, stock y unidad de medida.
 * Los productos se guardan temporalmente en un array y se muestran en una lista.
-* El nombre, precio, stock y unidad se leen desde el formulario.
-* El campo provisional de stock admite hasta tres decimales mediante `step="0.001"`.
-* Todavía falta impedir cantidades decimales cuando la unidad seleccionada sea `UNIT`.
+* El precio sugerido se calcula desde costo y markup; el precio de venta sigue siendo editable y se guarda su valor actual.
+* Cambiar costo o markup vuelve a calcular el precio, por lo que todavía puede sobrescribir una edición manual previa.
+* Editar la venta actualiza el porcentaje sobre costo con dos decimales, conservando el precio escrito. Cambiar posteriormente el costo o el porcentaje vuelve a aplicar el cálculo hacia adelante.
+* El campo de stock cambia entre `step="1"` para unidades y `step="0.001"` para peso, longitud o volumen.
+* La validación JavaScript rechaza unidades fraccionarias, números inválidos, valores iniciales negativos y unidades desconocidas.
+* Los errores de la validación JavaScript se muestran dentro del formulario y no se guardan productos inválidos.
+* `npm test` comprueba cálculo, validación, conservación del precio manual al guardar y restauración de las reglas tras limpiar el formulario. Estas pruebas no sustituyen la revisión visual de Electron.
 * Los precios se muestran con formato de pesos argentinos.
 * Las unidades usan códigos internos (`UNIT`, `KILOGRAM`, `METER`, `LITER`) y etiquetas visibles (`un.`, `kg`, `m`, `l`).
 * Los productos temporales se pierden al cerrar la aplicación porque todavía no existe persistencia.
@@ -1534,11 +1593,8 @@ Rama: feature/productos-iniciales
 
 Próximo paso recomendado:
 
-* Revisar y ordenar el HTML y JavaScript del prototipo de productos.
-* Separar costo, markup y precio de venta en el formulario provisional.
-* Calcular un precio sugerido y permitir su edición manual.
-* Validar que `UNIT` use stock entero y que las demás unidades admitan decimales.
-* Crear la estructura visual inicial con barra lateral y área de contenido.
+* Definir una acción clara para recalcular el precio sin sobrescribir accidentalmente una edición manual.
+* Revisar visualmente la navegación inicial y continuar con las funciones de Productos previstas en el alcance.
 * Preparar la migración didáctica a React y TypeScript sin perder lo aprendido.
 
 React, TypeScript, la API y PostgreSQL todavía no están implementados. Se incorporarán progresivamente cuando la base necesaria esté comprendida y definida.
@@ -1610,6 +1666,10 @@ Estas decisiones afectan la arquitectura o los datos y deben evaluarse antes de 
 
 ## 40.3. Operaciones comerciales
 
+* Definir si Stockizi reemplazará o complementará StockFácil y cómo será la transición.
+* Confirmar el alcance operativo indispensable y los escenarios de aceptación antes de poner Stockizi en uso.
+* Inspeccionar el Excel de productos de StockFácil: columnas, formatos y contenido real.
+* Definir el alcance de importación de productos y confirmar por separado si stock, precios, deudas e historial son exportables.
 * Precisar cómo se relacionan los pagos con ventas, compras y cobros de cuenta corriente.
 * Definir las reglas exactas para pagos parciales y deudas futuras con proveedores.
 * Definir cómo se corrige una venta sin perder la auditoría de la operación original.

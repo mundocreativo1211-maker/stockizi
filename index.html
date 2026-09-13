@@ -7,15 +7,70 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <aside class="sidebar">
+      <p class="brand">Stockizi</p>
+      <nav aria-label="Navegación principal">
+        <button type="button" data-section="home" aria-controls="section-home" aria-current="page">Inicio</button>
+        <button type="button" data-section="sale" aria-controls="section-sale">Nueva venta</button>
+        <button type="button" data-section="products" aria-controls="section-products">Productos</button>
+        <button type="button" data-section="cash" aria-controls="section-cash">Caja</button>
+      </nav>
+      <p class="sidebar-note">Prototipo en desarrollo</p>
+    </aside>
     <main>
-      <h1>Stockizi</h1>
-      <p>La aplicación de escritorio está funcionando.</p>
-      <p>El próximo paso será crear la primera pantalla de productos.</p>
+      <section id="section-home" data-page="home" aria-labelledby="title-home">
+        <h1 id="title-home" tabindex="-1">Inicio</h1>
+        <p>Bienvenido a Stockizi. Elegí una sección del menú para trabajar.</p>
+        <div class="notice">
+          <h2>Estado del proyecto</h2>
+          <p>Productos permite probar cargas y cálculos. Los datos de prueba se conservan al cambiar de sección, pero se pierden al cerrar la aplicación.</p>
+          <p>Más adelante encontrarás aquí el resumen del día, el estado de caja y las tareas pendientes.</p>
+        </div>
+      </section>
+      <section id="section-sale" data-page="sale" aria-labelledby="title-sale" hidden>
+        <h1 id="title-sale" tabindex="-1">Nueva venta</h1>
+        <p class="status">Pendiente de implementación</p>
+        <p>Aquí buscaremos productos por nombre, código o rubro, armaremos el carrito y registraremos los pagos.</p>
+        <p>Esta sección todavía no registra ventas ni modifica el stock.</p>
+      </section>
+      <section id="section-products" data-page="products" aria-labelledby="title-products" hidden>
+      <h1 id="title-products" tabindex="-1">Productos</h1>
+      <p>Agregá productos de prueba. Todavía no se conservan al cerrar la aplicación.</p>
       <form id="product-form">
         <label for="product-name">Nombre</label>
         <input id="product-name" type="text" required />
-        <label for="product-price">Precio</label>
-        <input id="product-price" type="number" min="0" step="0.01" required />
+
+        <label for="product-category">Rubro</label>
+        <select id="product-category">
+          <option value="">Sin rubro</option>
+        </select>
+
+        <label for="product-cost-price">Precio de costo</label>
+        <input
+          id="product-cost-price"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+        />
+
+        <label for="product-markup">Porcentaje sobre el costo (%)</label>
+        <input
+          id="product-markup"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+        />
+
+        <label for="product-sale-price">Precio de venta</label>
+        <input
+          id="product-sale-price"
+          type="number"
+          min="0"
+          step="0.01"
+          required
+        />
 
         <label for="product-stock">Stock</label>
         <input id="product-stock" type="number" min="0" step="0.001" required />
@@ -29,11 +84,36 @@
         </select>
 
         <button type="submit">Agregar producto</button>
+        <p id="form-error" role="alert"></p>
       </form>
 
+      <h2>Catálogo</h2>
+      <div class="catalog-filters" role="search" aria-label="Buscar productos">
+        <div>
+          <label for="product-search">Buscar por nombre</label>
+          <input id="product-search" type="search" placeholder="Ejemplo: azúcar o caja 20" />
+        </div>
+        <div>
+          <label for="category-filter">Filtrar por rubro</label>
+          <select id="category-filter">
+            <option value="">Todos los rubros</option>
+            <option value="uncategorized">Sin rubro</option>
+          </select>
+        </div>
+        <button id="clear-filters" type="button">Limpiar filtros</button>
+      </div>
+      <p id="results-summary" role="status"></p>
       <ul id="products-list"></ul>
+      </section>
+      <section id="section-cash" data-page="cash" aria-labelledby="title-cash" hidden>
+        <h1 id="title-cash" tabindex="-1">Caja</h1>
+        <p class="status">Pendiente de implementación</p>
+        <p>Aquí estarán la apertura, los movimientos, los retiros, las reservas y el cierre de caja.</p>
+        <p>Esta sección todavía no registra ingresos ni egresos.</p>
+      </section>
     </main>
 
     <script src="renderer.js"></script>
+    <script src="navigation.js"></script>
   </body>
 </html>
