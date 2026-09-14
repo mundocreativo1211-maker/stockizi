@@ -34,76 +34,44 @@
         <p>Esta sección todavía no registra ventas ni modifica el stock.</p>
       </section>
       <section id="section-products" data-page="products" aria-labelledby="title-products" hidden>
-      <h1 id="title-products" tabindex="-1">Productos</h1>
-      <p>Agregá productos de prueba. Todavía no se conservan al cerrar la aplicación.</p>
-      <form id="product-form">
-        <label for="product-name">Nombre</label>
-        <input id="product-name" type="text" required />
-
-        <label for="product-category">Rubro</label>
-        <select id="product-category">
-          <option value="">Sin rubro</option>
-        </select>
-
-        <label for="product-cost-price">Precio de costo</label>
-        <input
-          id="product-cost-price"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-        />
-
-        <label for="product-markup">Porcentaje sobre el costo (%)</label>
-        <input
-          id="product-markup"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-        />
-
-        <label for="product-sale-price">Precio de venta</label>
-        <input
-          id="product-sale-price"
-          type="number"
-          min="0"
-          step="0.01"
-          required
-        />
-
-        <label for="product-stock">Stock</label>
-        <input id="product-stock" type="number" min="0" step="0.001" required />
-
-        <label for="product-unit">Unidad de medida</label>
-        <select id="product-unit" required>
-          <option value="UNIT">Unidad</option>
-          <option value="KILOGRAM">Kilogramo</option>
-          <option value="METER">Metro</option>
-          <option value="LITER">Litro</option>
-        </select>
-
-        <button type="submit">Agregar producto</button>
-        <p id="form-error" role="alert"></p>
-      </form>
-
-      <h2>Catálogo</h2>
-      <div class="catalog-filters" role="search" aria-label="Buscar productos">
-        <div>
-          <label for="product-search">Buscar por nombre</label>
-          <input id="product-search" type="search" placeholder="Ejemplo: azúcar o caja 20" />
+        <header class="products-header">
+          <h1 id="title-products" tabindex="-1">Productos</h1>
+          <button type="button" id="manage-categories">Administrar rubros</button>
+        </header>
+        <div class="catalog-area">
+          <div class="catalog-filters" role="search" aria-label="Buscar productos">
+            <div><label for="product-search">Nombre</label><input id="product-search" type="search" placeholder="Buscar producto" /></div>
+            <div><label for="category-filter">Rubro</label><select id="category-filter"></select></div>
+            <div><label for="subcategory-filter">Subcategoría</label><select id="subcategory-filter"></select></div>
+            <button id="clear-filters" type="button">Limpiar filtros</button>
+          </div>
+          <p id="results-summary" role="status"></p>
+          <div class="catalog-scroll" tabindex="0" aria-label="Lista de productos"><ul id="products-list"></ul></div>
         </div>
-        <div>
-          <label for="category-filter">Filtrar por rubro</label>
-          <select id="category-filter">
-            <option value="">Todos los rubros</option>
-            <option value="uncategorized">Sin rubro</option>
-          </select>
-        </div>
-        <button id="clear-filters" type="button">Limpiar filtros</button>
-      </div>
-      <p id="results-summary" role="status"></p>
-      <ul id="products-list"></ul>
+        <form id="product-form">
+          <h2 id="product-form-title">Nuevo producto</h2>
+          <div class="product-fields">
+            <label>Nombre<input id="product-name" type="text" required /></label>
+            <label>Rubro<select id="product-category"></select></label>
+            <label>Subcategoría<select id="product-subcategory"></select></label>
+            <label>Costo<input id="product-cost-price" type="number" min="0" step="0.01" required /></label>
+            <label>Porcentaje sobre costo<input id="product-markup" type="number" min="0" step="0.01" required /></label>
+            <label>Venta<input id="product-sale-price" type="number" min="0" step="0.01" required /></label>
+            <label>Stock<input id="product-stock" type="number" min="0" step="1" required /></label>
+            <label>Unidad<select id="product-unit" required>
+              <option value="UNIT">Unidad</option><option value="KILOGRAM">Kilogramo</option>
+              <option value="METER">Metro</option><option value="LITER">Litro</option>
+            </select></label>
+          </div>
+          <div class="product-actions">
+            <button id="save-product" type="submit" disabled>Guardar</button>
+            <button id="cancel-product" type="button" disabled>Cancelar</button>
+            <button id="new-product" type="button">Nuevo producto</button>
+            <span>Datos temporales: se pierden al cerrar.</span>
+          </div>
+          <p id="product-form-status" role="status"></p>
+          <p id="form-error" role="alert"></p>
+        </form>
       </section>
       <section id="section-cash" data-page="cash" aria-labelledby="title-cash" hidden>
         <h1 id="title-cash" tabindex="-1">Caja</h1>
@@ -112,6 +80,31 @@
         <p>Esta sección todavía no registra ingresos ni egresos.</p>
       </section>
     </main>
+
+    <dialog id="category-dialog" aria-labelledby="category-title">
+      <h2 id="category-title">Rubros y subcategorías</h2>
+      <p>Creá rubros propios y subcategorías como Insumos o Bandejas.</p>
+      <form id="category-form">
+        <label for="category-edit">Crear o renombrar</label>
+        <select id="category-edit"></select>
+        <label for="category-parent">Dentro del rubro</label>
+        <select id="category-parent"></select>
+        <label for="category-name">Nombre</label>
+        <input id="category-name" maxlength="80" required />
+        <button type="submit">Guardar</button>
+        <p id="category-error" role="alert"></p>
+      </form>
+      <button id="close-categories" type="button">Cerrar</button>
+    </dialog>
+
+    <dialog id="discard-dialog" aria-labelledby="discard-title" aria-describedby="discard-description">
+      <h2 id="discard-title">Cambios sin guardar</h2>
+      <p id="discard-description">Si continuás, se descartarán los cambios del formulario. El producto guardado no se modificará.</p>
+      <div class="product-actions">
+        <button id="keep-editing" type="button" autofocus>Seguir editando</button>
+        <button id="discard-changes" type="button">Descartar cambios</button>
+      </div>
+    </dialog>
 
     <script src="renderer.js"></script>
     <script src="navigation.js"></script>

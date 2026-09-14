@@ -112,7 +112,8 @@ Estado comprobado:
 * Electron carga `index.html` desde `main.js`.
 * `styles.css` contiene la presentación visual.
 * `renderer.js` maneja la interacción de la pantalla.
-* Productos permite asignar rubros (Repostería, Papelera y Cotillón), buscar por nombre sin distinguir mayúsculas ni tildes, y combinar la búsqueda con un filtro por rubro. Los artículos sin clasificar quedan como `Sin rubro`.
+* Productos permite crear y renombrar rubros propios y subcategorías. No hay rubros predefinidos. El nombre, rubro y subcategoría se combinan para filtrar el catálogo; los artículos sin clasificar quedan como `Sin rubro`.
+* En escritorio, el catálogo se desplaza arriba y el formulario permanece visible abajo. Rubros y productos todavía son temporales, sin persistencia.
 * `navigation.js` conecta Inicio, Nueva venta, Productos y Caja en una barra lateral. Inicio muestra el estado del prototipo; Ventas y Caja todavía son secciones informativas pendientes de implementación.
 * La rama actual es `feature/productos-iniciales`.
 * Existe un formulario provisional de productos con nombre, costo, markup, precio de venta, stock y unidad.
@@ -260,13 +261,46 @@ El alcance deseado y los cambios respecto al sistema actual siguen siendo los de
 
 Pendientes antes de diseñar una importación o transición:
 
-* Revisar un Excel real: hojas, columnas, tipos, identificadores y formatos.
-* Comprobar si la exportación incluye stock, costos, precios y códigos; todavía no está confirmado.
+* Contrastar el archivo de ejemplo ya revisado con una exportación completa del negocio antes de migrar.
+* Definir cómo importar unidades de medida, subrubros, fotos y códigos adicionales, ausentes en el ejemplo.
 * Comprobar si pueden exportarse clientes, proveedores, deudas o historial; no se presupone esa capacidad.
 * Decidir qué información se migrará y cómo se validará, sin sobrescribir datos reales accidentalmente.
 * Definir reemplazo o convivencia con StockFácil y las tareas indispensables para poner Stockizi en uso.
 
-La exportación a Excel está confirmada por el usuario, pero su formato y contenido no fueron inspeccionados. No se atribuye información a capturas o archivos que todavía no se hayan revisado.
+El 13/09/2026 se inspeccionó `apuntes/ejemplo/ejemplom excel articulos.xlsx`: contiene una hoja `Sheet1`, 6 artículos de prueba y 14 columnas. Confirma que este ejemplo incluye códigos, stock, costos y precios; no confirma que puedan exportarse otras entidades ni que todos los archivos futuros tengan el mismo formato.
+
+## 5.4. Referencia revisada: videos y Excel de StockFácil
+
+Se revisaron fotogramas de los cuatro videos de `apuntes/ejemplo/` y la transcripción automática local de sus audios. Las explicaciones se contrastaron con las pantallas; los importes de prueba y las dudas del usuario no se convierten en reglas definitivas. No se ejecutaron operaciones sobre la base del negocio.
+
+### Funcionamiento y necesidades observadas
+
+* `interfaz, articulos.mp4` (2:14): catálogo arriba y ficha abajo, selección, modificación y creación; Guardar se habilita en edición. Hay acceso a familias y proveedores desde la ficha, códigos con letras, foto y venta por kilo/litro/metro. Se mostraron problemas y dudas del programa de referencia que no deben copiarse. La caja de pizza marcada por peso es un ejemplo de prueba, no un cambio de la regla de unidades enteras de Stockizi.
+* `ventas.mp4` (2:29): es la pantalla donde más tiempo trabaja el usuario. Se busca y selecciona un artículo sin perder la venta, se modifica el precio del renglón sin cambiar el catálogo, y se ingresa cantidad en gramos o importe para venta por peso. Se muestran contado/Mercado Pago, descuentos, recargos y artículo rápido con descripción y precio para mercadería todavía no cargada. Las listas de precios y las promociones necesitan definición propia; el usuario indicó que las promociones pueden omitirse por ahora. No se presupone el alcance de devoluciones por la sola presencia del botón.
+* `proveedores clientes compras.mp4` (1:45): el usuario no utiliza actualmente proveedores ni clientes en StockFácil y no tiene claro su funcionamiento. Quiere poder usar Compras con una interfaz más simple. Se muestran usuarios y permisos; su alcance sigue por decidir. Esto no elimina las funciones ya planificadas para Stockizi.
+* `contabilidad.mp4` (3:14): interesa el inicio de caja, los movimientos separados por medio de pago, la consulta de ventas por día/mes/rango y el detalle de cada venta. El usuario consulta ese detalle desde Contabilidad, no habitualmente desde Artículos vendidos de Caja. Para corregir un medio de pago hoy vuelve a cargar la operación mediante presupuesto y anula la anterior: quiere un procedimiento más cómodo.
+
+Propuestas pendientes de acordar antes de implementar:
+
+* Corregir el medio de pago desde el historial, conservando venta, stock y trazabilidad. Definir permisos, motivo, tratamiento de cajas cerradas y actualización de los movimientos; no borrar ni duplicar ventas silenciosamente.
+* Definir artículo rápido: si crea o no un producto, cómo se registra su costo y cómo se trata su stock. No asumir costo cero como ganancia real.
+* Definir límites, orden de aplicación, permisos y redondeo de descuentos y recargos.
+* Mostrar el inventario a costo con ese nombre, distinguiéndolo de ventas, costo de mercadería vendida y resultado bruto. El costo histórico de cada venta debe conservarse al cambiar costos actuales. El resultado bruto no representa por sí solo el resultado después de gastos.
+
+### Columnas del Excel de ejemplo
+
+`CODIGO`, `DETALLE`, `FAMILIA`, `PROVEEDOR`, `MARCA`, `P.COSTO`, `P.VENTA`, `IVA`, `P.LISTA2`, `P.LISTA3`, `P.MAYOR`, `STOCK`, `STOCK MIN`, `STOCK IDEAL`.
+
+Observaciones para diseñar el importador, todavía no implementado:
+
+* Hay códigos numéricos y alfanuméricos: tratarlos como identificadores de texto. Si un origen numérico ya perdió ceros iniciales, no pueden recuperarse por suposición.
+* Hay familia, proveedor y marca vacíos. `FAMILIA` podría mapearse a rubro, pero debe confirmarse; no inventar asociaciones por el contenido de un nombre.
+* Hay stock negativo y un valor `-0.375999987125397`. Conservar el dato original para revisión y acordar normalización a la precisión de la unidad, sin convertir negativos en cero ni redondear silenciosamente unidades enteras.
+* No hay una columna de unidad de medida, subrubro, foto ni códigos alternativos. No deducirlos únicamente del nombre del artículo.
+* El IVA incluye un valor de prueba 34; no convertirlo en configuración fiscal por defecto. Las listas 2/3 y el precio mayorista no definen por sí solos reglas de descuentos o cantidades mínimas.
+* Propuesta de importación: vista previa de correspondencias, duplicados, faltantes y errores antes de confirmar; no sobrescribir datos existentes automáticamente.
+
+Los videos, fotogramas y transcripciones no se incorporan al código ni a Git. La extracción y transcripción se realizaron en una carpeta temporal fuera del proyecto.
 
 ---
 
@@ -369,6 +403,7 @@ margin (calculado)
 barcodes
 supplierId
 categoryId
+subcategoryId
 stock
 unit
 lowStockThreshold
@@ -407,6 +442,7 @@ Interpretación:
 * `barcodes`: colección de códigos que permiten encontrar el mismo producto.
 * `supplierId`: distribuidor asociado en el modelo inicial; la relación definitiva está por decidir.
 * `categoryId`: rubro o categoría principal del producto.
+* `subcategoryId`: subcategoría opcional perteneciente al rubro elegido en el prototipo actual.
 * `stock`: cantidad disponible del producto. Debe admitir decimales.
 * `unit`: unidad de medida utilizada para interpretar el stock y las cantidades.
 * `lowStockThreshold`: cantidad a partir de la cual se muestra una alerta de stock bajo.
@@ -531,7 +567,7 @@ El alcance inicial no manejará stock separado por color o presentación. Esa po
 
 ## 8.4. Rubros, categorías y búsqueda visual
 
-Los productos podrán organizarse inicialmente en rubros como:
+El usuario crea y renombra sus propios rubros. No vienen definidos por el programa. Ejemplos posibles:
 
 ```text
 Repostería
@@ -561,7 +597,9 @@ Cotillón
 └── Decoración
 ```
 
-La primera versión puede utilizar solamente categorías principales. No será obligatorio crear subcategorías desde el comienzo.
+El prototipo permite categorías principales y un nivel de subcategorías opcionales, por ejemplo Repostería → Insumos o Bandejas. Renombrar conserva el identificador y las relaciones existentes. No se permiten nombres duplicados dentro del mismo nivel y rubro. El traslado y eliminación de categorías todavía no están implementados.
+
+Distribución acordada para escritorio: catálogo y filtros arriba, con desplazamiento propio de la lista; formulario compacto siempre visible abajo. En pantallas pequeñas se permite desplazar la página para mantener accesibles todos los campos.
 
 La sección `Productos` permitirá:
 
@@ -1571,7 +1609,11 @@ Estado funcional actual:
 * `renderer.js` controla la interacción de la interfaz.
 * El catálogo permite filtrar por nombre y rubro, muestra la cantidad de resultados y permite limpiar filtros. Agregar un producto limpia los filtros para que se vea la nueva carga. La búsqueda visual con fotos y los múltiples códigos todavía están pendientes.
 * La navegación lateral cambia la sección visible sin recrear el formulario ni perder productos durante la sesión. `navigation.js` se encarga de ese comportamiento.
-* Existe un formulario provisional para agregar productos con nombre, costo, markup, precio de venta, stock y unidad de medida.
+* Existe un formulario provisional para agregar y editar productos con nombre, costo, markup, precio de venta, stock y unidad de medida.
+* Seleccionar un producto carga sus datos en el formulario inferior y destaca la fila. Los identificadores estables evitan confundir productos cuando se filtra la lista.
+* Los campos son un borrador: el catálogo solo cambia al guardar. Guardar se habilita con cambios válidos y actualiza el mismo producto sin duplicarlo; cargar el formulario no recalcula su precio manual.
+* Cancelar restaura los datos guardados del producto seleccionado (o limpia una carga nueva). Nuevo producto inicia un formulario vacío. Si hay cambios pendientes, cambiar de producto, cancelar o iniciar otro pide confirmar el descarte; Seguir editando o Escape conserva el borrador.
+* La navegación entre secciones conserva también el borrador. Todavía no hay protección frente al cierre/recarga ni persistencia: este flujo solo debe usarse con datos de prueba.
 * Los productos se guardan temporalmente en un array y se muestran en una lista.
 * El precio sugerido se calcula desde costo y markup; el precio de venta sigue siendo editable y se guarda su valor actual.
 * Cambiar costo o markup vuelve a calcular el precio, por lo que todavía puede sobrescribir una edición manual previa.
@@ -1579,7 +1621,7 @@ Estado funcional actual:
 * El campo de stock cambia entre `step="1"` para unidades y `step="0.001"` para peso, longitud o volumen.
 * La validación JavaScript rechaza unidades fraccionarias, números inválidos, valores iniciales negativos y unidades desconocidas.
 * Los errores de la validación JavaScript se muestran dentro del formulario y no se guardan productos inválidos.
-* `npm test` comprueba cálculo, validación, conservación del precio manual al guardar y restauración de las reglas tras limpiar el formulario. Estas pruebas no sustituyen la revisión visual de Electron.
+* `npm test` pasa 15 pruebas de cálculo, validación, selección, edición sin duplicados, descarte/cancelación, filtros e identificadores y conservación de precios. El 14/09/2026 también se verificó el flujo en Chrome automatizado, sin errores JavaScript, y se revisaron capturas en 1100 × 750 y 390 × 844. Esto no sustituye una prueba manual en Electron.
 * Los precios se muestran con formato de pesos argentinos.
 * Las unidades usan códigos internos (`UNIT`, `KILOGRAM`, `METER`, `LITER`) y etiquetas visibles (`un.`, `kg`, `m`, `l`).
 * Los productos temporales se pierden al cerrar la aplicación porque todavía no existe persistencia.
@@ -1668,8 +1710,8 @@ Estas decisiones afectan la arquitectura o los datos y deben evaluarse antes de 
 
 * Definir si Stockizi reemplazará o complementará StockFácil y cómo será la transición.
 * Confirmar el alcance operativo indispensable y los escenarios de aceptación antes de poner Stockizi en uso.
-* Inspeccionar el Excel de productos de StockFácil: columnas, formatos y contenido real.
-* Definir el alcance de importación de productos y confirmar por separado si stock, precios, deudas e historial son exportables.
+* Contrastar el Excel de ejemplo ya inspeccionado (sección 5.4) con la exportación completa del negocio y acordar correspondencias, unidades, duplicados y normalización de cantidades.
+* Definir el alcance de importación de productos; el ejemplo incluye stock y precios, pero la exportación de deudas e historial sigue sin confirmar.
 * Precisar cómo se relacionan los pagos con ventas, compras y cobros de cuenta corriente.
 * Definir las reglas exactas para pagos parciales y deudas futuras con proveedores.
 * Definir cómo se corrige una venta sin perder la auditoría de la operación original.
