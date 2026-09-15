@@ -111,16 +111,16 @@ Estado comprobado:
 * `npm start` abre la aplicación de escritorio.
 * Electron carga `index.html` desde `main.js`.
 * `styles.css` contiene la presentación visual.
-* `renderer.js` maneja la interacción de la pantalla.
-* Productos permite crear y renombrar rubros propios y subcategorías. No hay rubros predefinidos. El nombre, rubro y subcategoría se combinan para filtrar el catálogo; los artículos sin clasificar quedan como `Sin rubro`.
-* En escritorio, el catálogo se desplaza arriba y el formulario permanece visible abajo. Rubros y productos todavía son temporales, sin persistencia.
+* `catalog.js` maneja consulta y edición limitada. `preload.js` expone consulta y guardado de productos; `main.js` llama a la API mediante `api-client.js`, sin entregar credenciales a la pantalla.
+* Productos permite buscar por nombre y editar nombre, costo y venta. El usuario confirmó la aplicación de `003_enable_product_editing.sql`, la configuración de `stockizi_editor` y una edición que se conserva al usar Actualizar. Rubros/subcategorías, altas, stock y unidad siguen deshabilitados.
+* En escritorio, el catálogo se desplaza arriba y la ficha permanece visible abajo. `renderer.js` conserva el prototipo anterior de edición local, pero ya no se carga desde `index.html`.
 * `navigation.js` conecta Inicio, Nueva venta, Productos y Caja en una barra lateral. Inicio muestra el estado del prototipo; Ventas y Caja todavía son secciones informativas pendientes de implementación.
 * La rama actual es `feature/productos-iniciales`.
 * Existe un formulario provisional de productos con nombre, costo, markup, precio de venta, stock y unidad.
-* Los productos temporales se muestran con moneda argentina y cantidades de hasta tres decimales.
-* No existe todavía base de datos: los productos agregados se pierden al cerrar la aplicación.
+* Los productos consultados se muestran con moneda argentina y cantidades de hasta tres decimales. No se mezclan con datos de ejemplo locales.
+* Existe PostgreSQL local (`stockizi_dev`) y una API de consulta y actualización limitada. El usuario confirmó el guardado y la reconsulta desde Electron. Crear productos desde Electron sigue pendiente.
 * `npm test` ejecuta pruebas automáticas del cálculo, validación y guardado provisional mediante Node.js, sin abrir Electron.
-* React, TypeScript, API, PostgreSQL y la interfaz móvil aún no están implementados.
+* React, TypeScript y la interfaz móvil aún no están implementados. La API actual es local, no está lista para acceso desde otros equipos.
 
 `node_modules/` está instalado localmente y excluido de Git. Los nuevos archivos dentro de `apuntes/` también están ignorados; los apuntes que ya habían sido confirmados antes continúan registrados en el historial.
 
@@ -630,6 +630,10 @@ $2.000 × 1,30 = $2.600
 Esto es diferente de calcular un margen porcentual sobre el precio final.
 
 El porcentaje de venta representa cuánto se agrega sobre el costo.
+
+Decisión confirmada: al guardar la ficha de un producto, el precio de venta no puede ser menor que el costo. La igualdad está permitida. La pantalla y la API bloquean importes inválidos; la migración `003` agrega la misma restricción en PostgreSQL, sin corregir datos existentes automáticamente. Esta decisión corresponde al catálogo; las reglas de descuentos y precios excepcionales en una venta se revisarán al implementar Ventas.
+
+En la edición conectada actual se escriben costo y venta; el porcentaje es de solo lectura y se recalcula con centavos enteros en `pricing.js`. Cambiar el costo no sobrescribe la venta manual. Con costo cero, se guarda porcentaje nulo. Se validan hasta diez dígitos enteros y dos decimales y el límite del porcentaje almacenado. La edición directa del porcentaje y la sugerencia de precio del prototipo se recuperarán mediante una acción explícita más adelante.
 
 Al crear o editar un producto, Stockizi calculará un precio de venta sugerido:
 
@@ -1604,6 +1608,16 @@ Electron ya está instalado.
 
 Estado funcional actual:
 
+* `catalog.js` consulta y guarda mediante el puente aislado de Electron. El proceso principal solo permite esas operaciones desde el archivo local y el marco principal de la ventana.
+* La lista inicia vacía, muestra carga/error/éxito y no vuelve a productos de ejemplo si falla la API. Actualizar consulta nuevamente; si falla conserva los datos anteriores con advertencia explícita.
+* Búsqueda por nombre entre los registros cargados, IDs visibles para distinguir nombres repetidos, selección de ficha y Cargar más para las páginas siguientes. Actualizar reinicia la paginación y conserva la selección si el producto sigue cargado.
+* Edición de nombre, costo y venta conectada a `PATCH /api/products/:id`, con permisos y guardado real confirmados por el usuario. El porcentaje se calcula al editar y al guardar; abrir una ficha no corrige datos automáticamente. Guardar exige cambios válidos y respuesta exitosa de la API antes de cambiar el catálogo. Cancelar restaura el borrador; cambiar de producto o actualizar con cambios pendientes se bloquea hasta guardar o cancelar. Un error conserva el formulario. La comparación de nombre/costo/venta originales en el UPDATE evita sobrescribir cambios simultáneos en esos campos (409). No es una auditoría ni un historial de versiones.
+* Stock, unidad, altas y administración de rubros siguen bloqueados. La migración `003` concede UPDATE solo de nombre, costo, venta y porcentaje a un rol nuevo; `stockizi_reader` permanece de solo lectura. La navegación conserva el borrador, pero cerrar o recargar la ventana aún puede perder cambios no guardados.
+* Verificación de esta edición: 39 pruebas automáticas aprobadas y prueba completa Electron → IPC → API con base simulada: bloqueo bajo costo, porcentaje 55,74 % para costo 1220 y venta 1900, guardado y reconsulta, stock protegido. Captura revisada. El 15/09/2026 el usuario confirmó `COMMIT` de `003`, configuró su conexión y comprobó que el precio guardado se conserva al usar Actualizar. La confirmación del guardado real proviene del usuario; el asistente no modificó sus productos. Durante el diagnóstico se comprobó configuración y permisos sin mostrar contraseñas.
+* El 14/09/2026 pasaron 30 pruebas automáticas (incluidas las del prototipo anterior). Una prueba de integración abrió Electron con la API existente, mostró 4 productos reales de desarrollo, verificó búsqueda, selección, Actualizar, controles de solo lectura y puente limitado sin acceso a Node. Se revisó la captura de esa ventana. No se modificaron productos ni se leyó `.env`.
+
+Prototipo anterior de edición local (conservado en `renderer.js`, NO activo en `index.html`):
+
 * La ventana de escritorio abre correctamente con `npm start`.
 * El CSS está separado de `index.html` en `styles.css`.
 * `renderer.js` controla la interacción de la interfaz.
@@ -1629,17 +1643,27 @@ Estado funcional actual:
 
 Trabajo en curso:
 
+* PostgreSQL fue instalado y el usuario confirmó la conexión desde pgAdmin. La consulta `current_database()` confirmó que la base de desarrollo se llama `stockizi_dev`; se corrigió el nombre anterior `stockizi` en el SQL de permisos y la configuración de ejemplo.
+* `database/001_create_products.sql` prepara la primera tabla real de productos. Incluye identidad, nombre, costo, venta, porcentaje opcional, unidad, stock, estado activo y fecha de creación. Todavía faltan relaciones, auditoría y conexión a la API; no sustituye el modelo completo de la sección 8.
+* El stock SQL usa `NUMERIC` con validación de hasta tres decimales e integridad para `UNIT`, en lugar de redondear automáticamente cantidades antes de validarlas. Se permiten negativos. Los importes usan `NUMERIC(12, 2)` y el porcentaje todavía no se sincroniza automáticamente con el precio.
+* El usuario confirmó en pgAdmin `public.products` en su base `stockizi_dev` y ejecutó consultas, INSERT y UPDATE de prueba. No repetir `001`, `002` ni `003`: ya fueron aplicadas. El usuario confirmó también la edición y reconsulta desde Electron con el rol editor.
+* Primera API local preparada en `server/`: HTTP nativo de Node y `pg`, con `GET /api/products`, paginación de 100 registros, SQL parametrizado y decimales/IDs conservados como texto en JSON. Es un paso didáctico inicial, no la elección definitiva del framework/ORM.
+* `npm run api` carga `.env` (privado e ignorado por Git), comprueba la tabla y escucha únicamente en `127.0.0.1`. El usuario confirmó `002`, configuró sus credenciales y obtuvo los productos; también se comprobó la consulta desde Electron. No hay autenticación de usuarios ni acceso desde otros equipos. Guía: `server/README.md`.
+
 ```text
 Rama: feature/productos-iniciales
 ```
 
 Próximo paso recomendado:
 
+* Revisar el recorrido `catalog.js` → `preload.js` → `main.js` → API → PostgreSQL con el usuario.
+* Conectar Nuevo producto: explicar la diferencia entre UPDATE e INSERT y definir cómo registrar el stock inicial antes de implementar el alta. Si se permite cargar existencias iniciales, deben acompañarse de un movimiento identificable; no habilitar cambios de stock sin su registro.
+* Completar rubros y códigos persistentes antes de recuperar toda la edición del prototipo.
 * Definir una acción clara para recalcular el precio sin sobrescribir accidentalmente una edición manual.
 * Revisar visualmente la navegación inicial y continuar con las funciones de Productos previstas en el alcance.
 * Preparar la migración didáctica a React y TypeScript sin perder lo aprendido.
 
-React, TypeScript, la API y PostgreSQL todavía no están implementados. Se incorporarán progresivamente cuando la base necesaria esté comprendida y definida.
+React y TypeScript todavía no están implementados. La lectura local está comprobada; la escritura limitada está probada con base simulada y su funcionamiento en PostgreSQL fue confirmado por el usuario. Altas, autenticación y despliegue compartido siguen pendientes.
 
 NO volver a instalar Electron si ya está instalado.
 

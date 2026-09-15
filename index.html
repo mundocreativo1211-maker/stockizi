@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <title>Stockizi</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -23,7 +24,7 @@
         <p>Bienvenido a Stockizi. Elegí una sección del menú para trabajar.</p>
         <div class="notice">
           <h2>Estado del proyecto</h2>
-          <p>Productos permite probar cargas y cálculos. Los datos de prueba se conservan al cambiar de sección, pero se pierden al cerrar la aplicación.</p>
+          <p>Productos consulta PostgreSQL mediante la API local. Con el permiso de edición configurado podés modificar nombre, costo y venta. Altas y cambios de stock siguen pendientes.</p>
           <p>Más adelante encontrarás aquí el resumen del día, el estado de caja y las tareas pendientes.</p>
         </div>
       </section>
@@ -36,38 +37,43 @@
       <section id="section-products" data-page="products" aria-labelledby="title-products" hidden>
         <header class="products-header">
           <h1 id="title-products" tabindex="-1">Productos</h1>
-          <button type="button" id="manage-categories">Administrar rubros</button>
+          <button type="button" id="manage-categories" disabled title="Los rubros todavía no están conectados a PostgreSQL">Administrar rubros</button>
         </header>
+        <div class="catalog-connection">
+          <p id="connection-status" role="status">Preparando consulta a PostgreSQL…</p>
+          <button type="button" id="refresh-products">Actualizar</button>
+        </div>
         <div class="catalog-area">
           <div class="catalog-filters" role="search" aria-label="Buscar productos">
             <div><label for="product-search">Nombre</label><input id="product-search" type="search" placeholder="Buscar producto" /></div>
-            <div><label for="category-filter">Rubro</label><select id="category-filter"></select></div>
-            <div><label for="subcategory-filter">Subcategoría</label><select id="subcategory-filter"></select></div>
+            <div><label for="category-filter">Rubro</label><select id="category-filter" disabled><option>Pendiente de conectar</option></select></div>
+            <div><label for="subcategory-filter">Subcategoría</label><select id="subcategory-filter" disabled><option>Pendiente de conectar</option></select></div>
             <button id="clear-filters" type="button">Limpiar filtros</button>
           </div>
           <p id="results-summary" role="status"></p>
           <div class="catalog-scroll" tabindex="0" aria-label="Lista de productos"><ul id="products-list"></ul></div>
+          <button id="load-more-products" type="button" hidden>Cargar más productos</button>
         </div>
         <form id="product-form">
-          <h2 id="product-form-title">Nuevo producto</h2>
-          <div class="product-fields">
-            <label>Nombre<input id="product-name" type="text" required /></label>
-            <label>Rubro<select id="product-category"></select></label>
-            <label>Subcategoría<select id="product-subcategory"></select></label>
+          <h2 id="product-form-title">Seleccioná un producto</h2>
+          <fieldset class="product-fields" aria-label="Ficha de producto">
+            <label>Nombre<input id="product-name" type="text" maxlength="200" required disabled /></label>
+            <label>Rubro<select id="product-category" disabled><option>Pendiente de conectar</option></select></label>
+            <label>Subcategoría<select id="product-subcategory" disabled><option>Pendiente de conectar</option></select></label>
             <label>Costo<input id="product-cost-price" type="number" min="0" step="0.01" required /></label>
-            <label>Porcentaje sobre costo<input id="product-markup" type="number" min="0" step="0.01" required /></label>
+            <label>Porcentaje sobre costo<input id="product-markup" type="number" step="0.01" readonly title="Se calcula al cambiar costo o venta; con costo cero no se define" /></label>
             <label>Venta<input id="product-sale-price" type="number" min="0" step="0.01" required /></label>
-            <label>Stock<input id="product-stock" type="number" min="0" step="1" required /></label>
-            <label>Unidad<select id="product-unit" required>
+            <label>Stock<input id="product-stock" type="number" step="0.001" disabled /></label>
+            <label>Unidad<select id="product-unit" disabled>
               <option value="UNIT">Unidad</option><option value="KILOGRAM">Kilogramo</option>
               <option value="METER">Metro</option><option value="LITER">Litro</option>
             </select></label>
-          </div>
+          </fieldset>
           <div class="product-actions">
             <button id="save-product" type="submit" disabled>Guardar</button>
             <button id="cancel-product" type="button" disabled>Cancelar</button>
-            <button id="new-product" type="button">Nuevo producto</button>
-            <span>Datos temporales: se pierden al cerrar.</span>
+            <button id="new-product" type="button" disabled>Nuevo producto</button>
+            <span>Se editan nombre, costo y venta. Stock y unidad quedan protegidos.</span>
           </div>
           <p id="product-form-status" role="status"></p>
           <p id="form-error" role="alert"></p>
@@ -106,7 +112,8 @@
       </div>
     </dialog>
 
-    <script src="renderer.js"></script>
+    <script src="pricing.js"></script>
+    <script src="catalog.js"></script>
     <script src="navigation.js"></script>
   </body>
 </html>

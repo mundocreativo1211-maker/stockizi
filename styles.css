@@ -79,6 +79,13 @@ main { height: 100vh; overflow: auto; padding: 20px; }
 #product-form { display: block; flex: none; padding: 14px; }
 #product-form h2 { margin: 0 0 10px; font-size: 18px; }
 .product-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 14px; }
+fieldset.product-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.catalog-connection { display: flex; align-items: center; gap: 12px; }
+.catalog-connection p { flex: 1; margin: 0; font-size: 13px; }
+.catalog-connection button, #load-more-products { padding: 8px 12px; border: 1px solid #8999ae; border-radius: 6px; background: white; }
+.connection-error { color: #b42318; }
+button:disabled { cursor: not-allowed; opacity: 0.65; }
+fieldset:disabled input, fieldset:disabled select { color: #334155; opacity: 1; background: #f4f7fb; }
 .product-fields label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; }
 .product-fields input, .product-fields select { padding: 7px; }
 .product-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
