@@ -44,3 +44,45 @@ Si algún precio existente incumple la regla, la migración falla sin corregirlo
 Los permisos son por columna, según [GRANT de PostgreSQL](https://www.postgresql.org/docs/18/sql-grant.html). La restricción compara costo y venta según [CHECK de PostgreSQL](https://www.postgresql.org/docs/18/ddl-constraints.html). Los permisos públicos o membresías ajenas a estas migraciones también deben revisarse antes de usar datos reales.
 
 Documentación: [identificadores automáticos](https://www.postgresql.org/docs/18/ddl-identity-columns.html) y [decimales NUMERIC](https://www.postgresql.org/docs/18/datatype-numeric.html).
+
+## Alta y stock inicial: migración 004
+
+El usuario confirmó que creó un producto desde Stockizi y lo vio en la API. No repetir 004 en esa base. La comprobación manual del movimiento con la consulta inferior queda como siguiente paso didáctico. El porcentaje editable agregado después no requiere cambios SQL.
+
+El usuario aprobó cargar existencias al crear un producto y registrar automáticamente su origen como **Stock inicial**. No exige proveedor ni computadora: no es una compra. Fecha, producto, cantidad, unidad y stock resultante quedan en `stock_movements`. La identificación del empleado espera a la autenticación.
+
+Abrir `004_initial_stock.sql` como administrador en `stockizi_dev` y ejecutar completo una vez. Mantener el usuario `stockizi_editor` y su contraseña actual; no cambiar `.env`. Después reiniciar API y Electron. No repetir 001–003. Ante error, ejecutar ROLLBACK y revisar antes de reintentar.
+
+La migración crea `stock_movements`, agrega `creation_key` y `creation_payload` para reconocer reintentos, y concede INSERT limitado en productos. Un trigger AFTER INSERT registra el movimiento en la misma transacción: o quedan ambos registros o ninguno. Incluye inicial cero; no crea filas para productos anteriores, cuyo historial sigue desconocido. El rol editor no recibe UPDATE de stock/unidad, DELETE de productos ni escritura directa en movimientos. La función del trigger tiene permisos acotados a su operación, nombres calificados y search_path fijo; su ejecución pública está revocada.
+
+El stock inicial de la API admite valores no negativos con hasta doce dígitos enteros y tres decimales. UNIT solo acepta enteros; KILOGRAM, METER y LITER admiten fracciones. Esto no elimina la regla de permitir stock negativo por futuras ventas: las ventas y ajustes todavía no están implementados. El historial actual admite INITIAL solamente; futuras migraciones incorporarán los otros motivos y sus reglas.
+
+Para ver lo registrado desde Query Tool (la pantalla de historial sigue pendiente):
+
+```sql
+SELECT p.id, p.name, m.created_at, m.kind,
+       m.quantity, m.unit, m.stock_after
+FROM public.stock_movements AS m
+JOIN public.products AS p ON p.id = m.product_id
+ORDER BY m.id DESC;
+```
+
+Referencia: los [triggers de PostgreSQL](https://www.postgresql.org/docs/18/trigger-definition.html) se ejecutan en la transacción de la operación que los dispara.
+
+## Rubros y subcategorías: 005 (confirmado por el usuario)
+
+En Query Tool de `stockizi_dev`, como administrador, abrir `005_categories.sql` y ejecutar completo una sola vez. Después reiniciar API y Electron; no cambiar `.env`, no crear otro usuario ni repetir 001–004. Ante un error, ejecutar ROLLBACK y revisar antes de repetir.
+
+Se crean `categories` y `subcategories` vacías, con nombres editables de hasta 80 caracteres. Los productos reciben `category_id` y `subcategory_id` opcionales: los existentes quedan sin rubro, sin cambiar precios, stock ni movimientos. Los nombres no se guardan repetidos en productos. Un FK compuesto garantiza que la subcategoría pertenezca al rubro y un CHECK impide subcategoría sin rubro.
+
+Hay unicidad del nombre sin distinguir mayúsculas (incluidas letras acentuadas) dentro de cada rubro/nivel. Se utiliza `pg_unicode_fast`, disponible en PostgreSQL 18 y bases UTF8, para no depender del idioma de Windows. Las tildes sí distinguen nombres. Se mantienen permisos de lectura para reader/editor y se conceden solamente altas y renombrado al editor, además de cambiar los dos vínculos del producto. No hay DELETE ni cambio de padre.
+
+Verificado con migraciones 001–005 en PostgreSQL temporal separado y con la ventana real. Posteriormente el usuario confirmó el funcionamiento de rubros/clasificación en su base; no repetir 005. Referencias: [claves foráneas](https://www.postgresql.org/docs/18/ddl-constraints.html#DDL-CONSTRAINTS-FK) y [comparación Unicode en PostgreSQL 18](https://www.postgresql.org/docs/18/collation.html#COLLATION-MANAGING-STANDARD).
+
+## Múltiples códigos: 006 (pendiente en la base del usuario)
+
+En Query Tool, conectado como administrador a `stockizi_dev`, abrir `006_product_codes.sql` y ejecutar todo una sola vez. No repetir 001–005, no cambiar `.env` ni contraseñas. Ante error, ejecutar `ROLLBACK;` y revisar el primer error antes de reintentar. Luego reiniciar API y Electron.
+
+Crea `product_codes` con ID propio, vínculo `product_id`, código TEXT (1–100 caracteres), `active` y fecha de creación. TEXT conserva ceros iniciales y letras. La comparación exacta distingue mayúsculas y minúsculas. Un índice único parcial sobre códigos activos impide que uno identifique dos productos. El editor puede leer, insertar producto/código y modificar `active`, no borrar filas ni cambiar el producto/código de una asociación. Quitar desde la API desactiva por ID de asociación y producto; un reintento antiguo no elimina una asociación nueva. No modifica precios, stock ni movimientos, ni agrega códigos a productos anteriores.
+
+Pruebas aisladas: ocho altas simultáneas del mismo código/producto, conflicto con otro producto, búsqueda exacta, retiro, reasignación explícita posterior y permisos. La base habitual no se modificó.

@@ -7,6 +7,105 @@ const product = { id: '1', name: 'Caja de pizza', costPrice: '1000.00', salePric
   markupPercentage: '50.00', stock: '-1', unit: 'UNIT', active: false };
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
+test('costo mantiene porcentaje y recalcula venta; venta manual actualiza porcentaje', async () => {
+  const { elements, document } = setup(async () => ({ ok: true, products: [product], nextAfterId: null }));
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  const change = (field, value) => {
+    const target = document.querySelector(`#product-${field}`);
+    target.value = value;
+    elements.get('#product-form').listeners.input({ target });
+  };
+  assert.equal(document.querySelector('#product-markup').disabled, false);
+  change('markup', '50');
+  assert.equal(document.querySelector('#product-sale-price').value, '1500.00');
+  change('sale-price', '1900');
+  assert.equal(document.querySelector('#product-markup').value, '90.00');
+  change('cost-price', '1220');
+  assert.equal(document.querySelector('#product-sale-price').value, '2318.00');
+  assert.equal(document.querySelector('#product-markup').value, '90.00');
+  change('cost-price', '');
+  assert.equal(document.querySelector('#product-markup').value, '90.00');
+  assert.equal(elements.get('#save-product').disabled, true);
+  change('cost-price', '2000');
+  assert.equal(document.querySelector('#product-sale-price').value, '3800.00');
+  assert.equal(document.querySelector('#product-markup').value, '90.00');
+  change('cost-price', '0');
+  assert.equal(document.querySelector('#product-sale-price').value, '3800.00');
+  assert.equal(document.querySelector('#product-markup').value, '');
+  assert.equal(document.querySelector('#product-markup').disabled, true);
+});
+
+test('porcentaje inválido conserva precio pero bloquea Guardar y Enter hasta corregir o cancelar', async () => {
+  let saves = 0;
+  const { elements, document } = setup(async () => ({ ok: true, products: [product], nextAfterId: null }), async () => { saves++; });
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  const field = document.querySelector('#product-markup');
+  field.value = '-1';
+  elements.get('#product-form').listeners.input({ target: field });
+  assert.equal(document.querySelector('#product-sale-price').value, product.salePrice);
+  assert.equal(elements.get('#save-product').disabled, true);
+  const name = document.querySelector('#product-name');
+  name.value = 'Otra caja';
+  elements.get('#product-form').listeners.input({ target: name });
+  await elements.get('#product-form').listeners.submit({ preventDefault() {} });
+  assert.equal(saves, 0);
+  assert.match(elements.get('#form-error').textContent, /porcentaje/);
+  elements.get('#cancel-product').listeners.click();
+  assert.equal(field.value, '50.00');
+});
+
+test('Nuevo habilita stock y unidad, valida y reintenta con la misma clave sin duplicar', async () => {
+  let attempts = 0;
+  const keys = [];
+  const { elements, document, context } = setup(async () => ({ ok: true, products: [], nextAfterId: null }), undefined,
+    async changes => {
+      keys.push(changes.requestId);
+      attempts++;
+      if (attempts === 1) return { ok: false, error: 'Respuesta perdida' };
+      return { ok: true, product: { ...product, id: '9', name: changes.name, unit: changes.unit, stock: changes.stock } };
+    });
+  await settle();
+  elements.get('#new-product').listeners.click();
+  assert.equal(document.querySelector('#product-stock').disabled, false);
+  assert.equal(document.querySelector('#product-unit').disabled, false);
+  for (const [field, value] of [['name', 'Azúcar'], ['cost-price', '1000'], ['sale-price', '1600'], ['stock', '1.2']]) {
+    document.querySelector(`#product-${field}`).value = value;
+  }
+  const form = elements.get('#product-form');
+  form.listeners.input();
+  assert.equal(elements.get('#save-product').disabled, true);
+  document.querySelector('#product-unit').value = 'KILOGRAM';
+  form.listeners.input();
+  assert.equal(elements.get('#save-product').disabled, false);
+  await form.listeners.submit({ preventDefault() {} });
+  assert.equal(vm.runInContext('catalog.length', context), 0);
+  await elements.get('#refresh-products').listeners.click();
+  assert.equal(document.querySelector('#product-name').value, 'Azúcar');
+  await form.listeners.submit({ preventDefault() {} });
+  assert.equal(keys[0], keys[1]);
+  assert.equal(vm.runInContext('catalog.length', context), 1);
+  assert.equal(document.querySelector('#product-stock').disabled, true);
+  assert.match(elements.get('#product-form-status').textContent, /Stock inicial/);
+  await form.listeners.submit({ preventDefault() {} });
+  assert.equal(attempts, 2);
+});
+
+test('Cancelar alta no crea datos y Nuevo no descarta una edición pendiente', async () => {
+  const { elements, document, context } = setup(async () => ({ ok: true, products: [product], nextAfterId: null }));
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  document.querySelector('#product-name').value = 'Cambio pendiente';
+  elements.get('#new-product').listeners.click();
+  assert.equal(document.querySelector('#product-name').value, 'Cambio pendiente');
+  elements.get('#cancel-product').listeners.click();
+  elements.get('#new-product').listeners.click();
+  elements.get('#cancel-product').listeners.click();
+  assert.equal(vm.runInContext('catalog.length', context), 1);
+  assert.equal(document.querySelector('#product-stock').disabled, true);
+});
+
 test('edición bloquea venta bajo costo, recalcula y confirma solo después de respuesta API', async () => {
   let calls = 0;
   const { elements, document, context } = setup(
@@ -56,7 +155,7 @@ test('fallo conserva borrador, bloquea actualización con cambios y Cancelar res
   assert.equal(document.querySelector('#product-name').value, product.name);
 });
 
-function setup(listProducts, saveProduct) {
+function setup(listProducts, saveProduct, createProduct) {
   const elements = new Map();
   function element() {
     return { value: '', children: [], listeners: {}, attributes: {},
@@ -72,7 +171,7 @@ function setup(listProducts, saveProduct) {
     if (!elements.has(key)) elements.set(key, element());
     return elements.get(key);
   }, createElement: element };
-  const context = vm.createContext({ document, window: { stockizi: { listProducts, saveProduct } } });
+  const context = vm.createContext({ document, crypto: require('node:crypto'), window: { stockizi: { listProducts, saveProduct, createProduct } } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../pricing.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../catalog.js'), 'utf8'), context);
   return { context, elements, document };

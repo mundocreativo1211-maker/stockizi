@@ -5,6 +5,55 @@ const http = require('node:http');
 const { createApi } = require('../server/app');
 const { listProducts } = require('../server/products');
 const { readConfig } = require('../server/database');
+const { randomUUID } = require('node:crypto');
+
+test('POST crea con SQL parametrizado y normaliza stock, devuelve 201 o reintento 200', async t => {
+  let inserted = false;
+  const body = { name: 'Azúcar', costPrice: '1220', salePrice: '1900', unit: 'KILOGRAM', stock: '1.200', requestId: randomUUID() };
+  const base = await withApi(t, async (sql, values) => {
+    if (sql.includes('INSERT INTO')) {
+      assert.match(sql, /ON CONFLICT \(creation_key\) DO NOTHING/);
+      assert.deepEqual(values.slice(0, 7), ['Azúcar', '1220.00', '1900.00', '55.74', 'KILOGRAM', '1.2', body.requestId]);
+      if (inserted) return { rows: [] };
+      inserted = true;
+    } else {
+      assert.match(sql, /creation_payload = \$2::jsonb/);
+    }
+    return { rows: [{ id: '2' }] };
+  });
+  const post = () => fetch(`${base}/api/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await post()).status, 201);
+  assert.equal((await post()).status, 200);
+});
+
+test('POST rechaza datos inválidos sin consultar y protege origen', async t => {
+  let calls = 0;
+  const base = await withApi(t, async () => { calls++; return { rows: [] }; });
+  const valid = { name: 'Caja', costPrice: '1', salePrice: '2', unit: 'UNIT', stock: '20', requestId: randomUUID() };
+  const post = (body, extra = {}) => fetch(`${base}/api/products`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) });
+  for (const change of [{ stock: '1.2' }, { stock: '-1' }, { stock: '1.0001' }, { salePrice: '0' },
+    { requestId: 'malo' }, { active: true }, { unit: 'X' }]) {
+    assert.equal((await post({ ...valid, ...change })).status, 400);
+  }
+  assert.equal((await post(valid, { Origin: 'https://example.com' })).status, 403);
+  assert.equal(calls, 0);
+});
+
+test('POST responde conflicto de clave, migración faltante o fallo sin filtrar SQL', async t => {
+  let code = null;
+  const base = await withApi(t, async () => {
+    if (code) throw Object.assign(new Error('secreto'), { code });
+    return { rows: [] };
+  });
+  const body = { name: 'Caja', costPrice: '1', salePrice: '2', unit: 'UNIT', stock: '0', requestId: randomUUID() };
+  for (const [error, status] of [[null, 409], ['42703', 403], ['42501', 403], ['23514', 503]]) {
+    code = error;
+    const response = await fetch(`${base}/api/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal(response.status, status);
+    assert.doesNotMatch(await response.text(), /secreto/);
+  }
+});
 
 async function withApi(t, query) {
   const server = createApi({ query });
@@ -21,7 +70,7 @@ test('GET devuelve productos sin convertir decimales ni identificadores a Number
   const row = { id: '9007199254740993', name: 'Azúcar', stock: '-1.200', salePrice: '1500.10' };
   const base = await withApi(t, async (sql, values) => {
     assert.match(sql, /SELECT/);
-    assert.match(sql, /ORDER BY id/);
+    assert.match(sql, /ORDER BY public\.products\.id/);
     assert.deepEqual(values, ['0', 101]);
     return { rows: [row] };
   });
@@ -49,10 +98,10 @@ test('pagina de a 100 y pasa el cursor como parámetro SQL', async () => {
 
 test('rechaza métodos de escritura, rutas inexistentes y cursores inválidos sin consultar', async t => {
   const base = await withApi(t, async () => { throw new Error('No debería consultar'); });
-  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+  for (const method of ['PUT', 'PATCH', 'DELETE']) {
     const response = await fetch(`${base}/api/products`, { method });
     assert.equal(response.status, 405);
-    assert.equal(response.headers.get('allow'), 'GET');
+    assert.equal(response.headers.get('allow'), 'GET, POST');
   }
   assert.equal((await fetch(`${base}/otra`)).status, 404);
   for (const afterId of ['-1', '1.2', '9223372036854775808', '1;DROP TABLE products']) {

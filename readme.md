@@ -112,13 +112,13 @@ Estado comprobado:
 * Electron carga `index.html` desde `main.js`.
 * `styles.css` contiene la presentación visual.
 * `catalog.js` maneja consulta y edición limitada. `preload.js` expone consulta y guardado de productos; `main.js` llama a la API mediante `api-client.js`, sin entregar credenciales a la pantalla.
-* Productos permite buscar por nombre y editar nombre, costo y venta. El usuario confirmó la aplicación de `003_enable_product_editing.sql`, la configuración de `stockizi_editor` y una edición que se conserva al usar Actualizar. Rubros/subcategorías, altas, stock y unidad siguen deshabilitados.
+* Productos permite buscar por nombre, editar precios y crear productos con stock inicial; el usuario confirmó el alta y su presencia en la API. También confirmó rubros/subcategorías editables, clasificación y filtros. Los múltiples códigos y su búsqueda exacta están implementados y probados, pendientes de aplicar `006_product_codes.sql` en su base. Cambios posteriores de stock/unidad siguen bloqueados.
 * En escritorio, el catálogo se desplaza arriba y la ficha permanece visible abajo. `renderer.js` conserva el prototipo anterior de edición local, pero ya no se carga desde `index.html`.
 * `navigation.js` conecta Inicio, Nueva venta, Productos y Caja en una barra lateral. Inicio muestra el estado del prototipo; Ventas y Caja todavía son secciones informativas pendientes de implementación.
 * La rama actual es `feature/productos-iniciales`.
 * Existe un formulario provisional de productos con nombre, costo, markup, precio de venta, stock y unidad.
 * Los productos consultados se muestran con moneda argentina y cantidades de hasta tres decimales. No se mezclan con datos de ejemplo locales.
-* Existe PostgreSQL local (`stockizi_dev`) y una API de consulta y actualización limitada. El usuario confirmó el guardado y la reconsulta desde Electron. Crear productos desde Electron sigue pendiente.
+* Existe PostgreSQL local (`stockizi_dev`) y una API de consulta, edición limitada y alta. La edición real fue confirmada por el usuario; el alta se probó en PostgreSQL aislado y espera la migración 004 en su base.
 * `npm test` ejecuta pruebas automáticas del cálculo, validación y guardado provisional mediante Node.js, sin abrir Electron.
 * React, TypeScript y la interfaz móvil aún no están implementados. La API actual es local, no está lista para acceso desde otros equipos.
 
@@ -563,6 +563,12 @@ Todos los códigos permiten encontrar el mismo producto y comparten su precio y 
 
 Cada código debe ser único dentro de Stockizi para evitar que un escaneo encuentre dos productos diferentes.
 
+Implementación actual: `product_codes` relaciona `product_id` con códigos de texto de hasta 100 caracteres. Conserva letras y ceros iniciales; recorta espacios de los extremos y distingue mayúsculas/minúsculas. No exige formato EAN ni convierte códigos a números. El campo descriptivo `label` queda pendiente.
+
+En la ficha de un producto ya guardado, **Códigos** permite agregar y quitar. Cada operación se guarda inmediatamente, separada del botón Guardar de la ficha; no se abre con cambios pendientes. Quitar pide una segunda confirmación y desactiva la asociación sin borrar el producto ni alterar stock/precio. Un código quitado puede volver a asignarse explícitamente; la asociación anterior se conserva inactiva. Esto no constituye todavía auditoría de empleados ni de fecha/motivo de retiro.
+
+Un índice único de códigos activos impide compartir código entre dos productos, incluso con solicitudes simultáneas. Repetir un alta para el mismo producto devuelve la asociación existente. Tras un fallo incierto, consultar otra vez antes de seguir. **Buscar código** (o Enter en ese campo) consulta toda la base y selecciona el producto, limpiando filtros de nombre y rubro. Nombre/rubro siguen buscando solo entre productos cargados. No se reemplaza un borrador sin guardar. La conexión con Nueva venta y la prueba con lector físico quedan pendientes.
+
 El alcance inicial no manejará stock separado por color o presentación. Esa posibilidad queda registrada como idea futura mediante variantes de producto.
 
 ## 8.4. Rubros, categorías y búsqueda visual
@@ -575,7 +581,7 @@ Papelería
 Cotillón
 ```
 
-Se utilizará una entidad separada para no guardar el nombre del rubro repetido dentro de cada producto:
+Se utiliza una entidad separada para no repetir el nombre del rubro dentro de cada producto. El modelo ampliado propuesto inicialmente es:
 
 ```text
 Category
@@ -588,7 +594,7 @@ createdAt
 updatedAt
 ```
 
-`parentId` permitirá crear subcategorías en el futuro sin cambiar el modelo. Por ejemplo:
+La implementación SQL actual separa `categories` (rubros) y `subcategories` (subcategorías, con `category_id` como padre), manteniendo un nivel de profundidad. Los campos active/createdAt/updatedAt del modelo ampliado siguen pendientes. Por ejemplo:
 
 ```text
 Cotillón
@@ -597,7 +603,9 @@ Cotillón
 └── Decoración
 ```
 
-El prototipo permite categorías principales y un nivel de subcategorías opcionales, por ejemplo Repostería → Insumos o Bandejas. Renombrar conserva el identificador y las relaciones existentes. No se permiten nombres duplicados dentro del mismo nivel y rubro. El traslado y eliminación de categorías todavía no están implementados.
+La vista conectada permite crear y renombrar ambos nombres, sin listas predefinidas, mediante Administrar rubros. Rubro y subcategoría son opcionales; los productos anteriores quedan Sin rubro hasta asignarlos. Renombrar conserva el ID y las relaciones. La base impide asignar una subcategoría de otro rubro mediante una clave foránea compuesta. No permite nombres duplicados ignorando mayúsculas dentro del mismo nivel y rubro (conserva diferencias de tildes). Las mismas subcategorías pueden existir en rubros distintos. Reintentar un alta con el mismo nombre recupera la existente; renombrar exige el nombre original para no pisar cambios simultáneos. No hay traslado ni eliminación.
+
+Los filtros por nombre, rubro y subcategoría se combinan sobre los productos cargados. Si quedan páginas, la pantalla avisa; todavía no es una búsqueda de toda la base. Cambiar el rubro limpia la subcategoría del borrador para evitar vínculos cruzados. Un fallo de consulta de rubros deshabilita su edición/filtro y muestra el error, sin borrar clasificaciones guardadas ni impedir consultar precios.
 
 Distribución acordada para escritorio: catálogo y filtros arriba, con desplazamiento propio de la lista; formulario compacto siempre visible abajo. En pantallas pequeñas se permite desplazar la página para mantener accesibles todos los campos.
 
@@ -633,7 +641,7 @@ El porcentaje de venta representa cuánto se agrega sobre el costo.
 
 Decisión confirmada: al guardar la ficha de un producto, el precio de venta no puede ser menor que el costo. La igualdad está permitida. La pantalla y la API bloquean importes inválidos; la migración `003` agrega la misma restricción en PostgreSQL, sin corregir datos existentes automáticamente. Esta decisión corresponde al catálogo; las reglas de descuentos y precios excepcionales en una venta se revisarán al implementar Ventas.
 
-En la edición conectada actual se escriben costo y venta; el porcentaje es de solo lectura y se recalcula con centavos enteros en `pricing.js`. Cambiar el costo no sobrescribe la venta manual. Con costo cero, se guarda porcentaje nulo. Se validan hasta diez dígitos enteros y dos decimales y el límite del porcentaje almacenado. La edición directa del porcentaje y la sugerencia de precio del prototipo se recuperarán mediante una acción explícita más adelante.
+En el formulario conectado, cambiar el porcentaje calcula la venta sugerida redondeada a centavos mediante enteros en `pricing.js`. Regla corregida por pedido del usuario: cambiar costo mantiene el porcentaje disponible y recalcula la venta; cambiar venta manualmente recalcula el porcentaje. Se conserva el porcentaje al vaciar transitoriamente el costo mientras se escribe, sin permitir guardar datos inválidos. Con costo cero el porcentaje se deshabilita, se ingresa venta directamente y se guarda porcentaje nulo; si todavía no hay porcentaje, no se inventa uno para calcular una venta. Un porcentaje inválido conserva la venta anterior pero bloquea Guardar y Enter hasta corregir o cancelar. Se validan hasta diez dígitos enteros y dos decimales y los límites almacenados. La API sigue recibiendo costo y venta y deriva el porcentaje efectivo: por redondeo a centavos puede diferir del porcentaje sugerido escrito, especialmente en costos muy pequeños. No requiere nueva migración SQL.
 
 Al crear o editar un producto, Stockizi calculará un precio de venta sugerido:
 
@@ -1608,11 +1616,21 @@ Electron ya está instalado.
 
 Estado funcional actual:
 
+* Rubros conectados: migración 005, GET/POST de categories, POST de subcategories y PATCH de sus nombres. Administrar rubros permite nombres propios y editables. El producto guarda categoryId/subcategoryId opcionales con comprobación de concurrencia; precios/stock se conservan al cambiar solo la clasificación. La API sigue aceptando las peticiones anteriores sin clasificación.
+* El usuario confirmó que rubros/subcategorías funcionan en su base habitual; no repetir 005. La siguiente migración es 006 para códigos.
+* Verificación más reciente: 62 pruebas automáticas aprobadas y recorrido completo en Electron/PostgreSQL temporal. Además de alta, precios y rubros, se probaron múltiples códigos, ceros iniciales, unicidad con ocho solicitudes concurrentes, rechazo de código ajeno, retiro confirmado, conservación de stock, permisos, borrador protegido y búsqueda fuera de la primera página. Se revisó la ventana. 006 sigue pendiente en stockizi_dev del usuario; no se modificaron sus productos ni credenciales.
+* `codes-ui.js` maneja el diálogo y la búsqueda; `server/codes.js` consulta PostgreSQL con parámetros. El puente permite solo listar/agregar/quitar/buscar códigos mediante rutas locales fijas. En ventanas bajas se permite desplazamiento de la página para mantener una altura útil de lista, sin comprimirla a una sola línea.
+
 * `catalog.js` consulta y guarda mediante el puente aislado de Electron. El proceso principal solo permite esas operaciones desde el archivo local y el marco principal de la ventana.
 * La lista inicia vacía, muestra carga/error/éxito y no vuelve a productos de ejemplo si falla la API. Actualizar consulta nuevamente; si falla conserva los datos anteriores con advertencia explícita.
 * Búsqueda por nombre entre los registros cargados, IDs visibles para distinguir nombres repetidos, selección de ficha y Cargar más para las páginas siguientes. Actualizar reinicia la paginación y conserva la selección si el producto sigue cargado.
 * Edición de nombre, costo y venta conectada a `PATCH /api/products/:id`, con permisos y guardado real confirmados por el usuario. El porcentaje se calcula al editar y al guardar; abrir una ficha no corrige datos automáticamente. Guardar exige cambios válidos y respuesta exitosa de la API antes de cambiar el catálogo. Cancelar restaura el borrador; cambiar de producto o actualizar con cambios pendientes se bloquea hasta guardar o cancelar. Un error conserva el formulario. La comparación de nombre/costo/venta originales en el UPDATE evita sobrescribir cambios simultáneos en esos campos (409). No es una auditoría ni un historial de versiones.
-* Stock, unidad, altas y administración de rubros siguen bloqueados. La migración `003` concede UPDATE solo de nombre, costo, venta y porcentaje a un rol nuevo; `stockizi_reader` permanece de solo lectura. La navegación conserva el borrador, pero cerrar o recargar la ventana aún puede perder cambios no guardados.
+* Nuevo producto habilita stock inicial y unidad solamente durante el alta. Guarda producto y movimiento INITIAL (incluso cero) juntos mediante un trigger, sin pedir proveedor ni computadora. Registra fecha, producto, cantidad, unidad y saldo resultante. La aprobación del usuario fue registrada el 15/09/2026. No se inventa historial de productos anteriores. Compras, ventas, ajustes, identidad del empleado y pantalla de movimientos siguen pendientes.
+* Actualización posterior: el usuario confirmó que Nuevo producto funcionó y el artículo aparece en GET /api/products de su base. Ya no necesita repetir 004. La comprobación manual del movimiento por SQL aún no fue confirmada. El porcentaje editable está implementado según sección 9: pasaron 49 pruebas y la integración Electron/API/PostgreSQL temporal, con alta por porcentaje, cambio de costo que conserva venta, edición por porcentaje y reconsulta. No se modificaron datos habituales ni credenciales.
+* La migración `004_initial_stock.sql` ya fue aplicada por el usuario, quien confirmó el alta. Concede INSERT limitado; no concede UPDATE de stock/unidad ni escritura directa del historial. `stockizi_reader` permanece de solo lectura. La API valida stock inicial no negativo (hasta doce enteros/tres decimales), UNIT entero y otras unidades fraccionarias; no se redondea lo inválido.
+* El alta usa POST con una clave única por borrador. Repetir esa clave con los mismos datos recupera el producto sin duplicarlo; con otros datos responde 409. La clave no sobrevive a cancelar/cerrar/recargar: ante un alta incierta se debe reintentar el mismo borrador o consultar antes de crear otro. La navegación conserva el borrador. Nuevo y Actualizar no descartan cambios pendientes.
+* Pruebas del alta: 46 pruebas automáticas aprobadas, más PostgreSQL real temporal con las migraciones 001–004, permisos restringidos, rollback forzado del movimiento, cantidades cero/decimales y ocho solicitudes concurrentes sin duplicados. La edición existente sigue funcionando. No se ejecutó 004 ni se modificaron productos en la base habitual del usuario.
+* También pasó la prueba completa Electron → IPC → API → PostgreSQL temporal: alta de 1,2 kg, movimiento inicial y reconsulta. Captura revisada, sin errores de JavaScript. Se corrigió un error previo del catálogo: ORDER BY ahora usa el ID numérico de la tabla, no el alias convertido a texto que ordenaba 1, 11, 2. La prueba incluye IDs de uno y dos dígitos.
 * Verificación de esta edición: 39 pruebas automáticas aprobadas y prueba completa Electron → IPC → API con base simulada: bloqueo bajo costo, porcentaje 55,74 % para costo 1220 y venta 1900, guardado y reconsulta, stock protegido. Captura revisada. El 15/09/2026 el usuario confirmó `COMMIT` de `003`, configuró su conexión y comprobó que el precio guardado se conserva al usar Actualizar. La confirmación del guardado real proviene del usuario; el asistente no modificó sus productos. Durante el diagnóstico se comprobó configuración y permisos sin mostrar contraseñas.
 * El 14/09/2026 pasaron 30 pruebas automáticas (incluidas las del prototipo anterior). Una prueba de integración abrió Electron con la API existente, mostró 4 productos reales de desarrollo, verificó búsqueda, selección, Actualizar, controles de solo lectura y puente limitado sin acceso a Node. Se revisó la captura de esa ventana. No se modificaron productos ni se leyó `.env`.
 
@@ -1656,14 +1674,17 @@ Rama: feature/productos-iniciales
 
 Próximo paso recomendado:
 
+* Mejora visual solicitada: hacer la interfaz más cuidada tomando como referencia las capturas y videos de StockFácil ya revisados, conservando catálogo arriba y formulario accesible. Queda planificada; no se rediseñó en este cambio de precios.
+* Regla actual de precios comprobada con 49 pruebas y Electron/PostgreSQL temporal: costo conserva porcentaje y actualiza venta. Esta decisión reemplaza la regla anterior que conservaba la venta al cambiar el costo.
+
 * Revisar el recorrido `catalog.js` → `preload.js` → `main.js` → API → PostgreSQL con el usuario.
-* Conectar Nuevo producto: explicar la diferencia entre UPDATE e INSERT y definir cómo registrar el stock inicial antes de implementar el alta. Si se permite cargar existencias iniciales, deben acompañarse de un movimiento identificable; no habilitar cambios de stock sin su registro.
-* Completar rubros y códigos persistentes antes de recuperar toda la edición del prototipo.
+* Aplicar 004 con el usuario en Query Tool de stockizi_dev, reiniciar API/Electron y comprobar Nuevo producto junto con su movimiento Stock inicial. No repetir 001–003 ni cambiar credenciales. Enseñar INSERT y el trigger automático; revisar el historial con la consulta de database/README.md.
+* Activar 006 con el usuario y probar dos códigos sobre un mismo producto, búsqueda por ambos y rechazo de duplicados en otro producto. No repetir 001–005. Después evaluar la base del selector de productos para Nueva venta. El rediseño visual sigue planificado como etapa posterior.
 * Definir una acción clara para recalcular el precio sin sobrescribir accidentalmente una edición manual.
 * Revisar visualmente la navegación inicial y continuar con las funciones de Productos previstas en el alcance.
 * Preparar la migración didáctica a React y TypeScript sin perder lo aprendido.
 
-React y TypeScript todavía no están implementados. La lectura local está comprobada; la escritura limitada está probada con base simulada y su funcionamiento en PostgreSQL fue confirmado por el usuario. Altas, autenticación y despliegue compartido siguen pendientes.
+React y TypeScript todavía no están implementados. La lectura y edición local están comprobadas. El alta con movimiento inicial está implementada y probada en PostgreSQL aislado, pendiente de activar con 004 en la base del usuario. Autenticación y despliegue compartido siguen pendientes.
 
 NO volver a instalar Electron si ya está instalado.
 

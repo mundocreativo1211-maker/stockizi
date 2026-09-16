@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron/main');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
-const { fetchProductsPage, saveProduct } = require('./api-client');
+const { fetchProductsPage, saveProduct, createProduct, categoryRequest, codeRequest } = require('./api-client');
 const indexPath = path.join(__dirname, 'index.html');
 const indexUrl = pathToFileURL(indexPath).href;
 
@@ -27,6 +27,31 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('codes:request', (event, operation, productId, value) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
+      return { ok: false, error: 'Operación no autorizada.' };
+    }
+    return codeRequest(operation, productId, value, { port: Number(process.env.API_PORT || 3000) });
+  });
+  ipcMain.handle('categories:list', event => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
+      return { ok: false, error: 'Consulta no autorizada.' };
+    }
+    return categoryRequest('categories', null, undefined, { port: Number(process.env.API_PORT || 3000) });
+  });
+  ipcMain.handle('categories:save', (event, kind, id, input) => {
+    if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
+      return { ok: false, error: 'Guardado no autorizado.' };
+    }
+    return categoryRequest(kind, id, input, { port: Number(process.env.API_PORT || 3000) });
+  });
+  ipcMain.handle('products:create', (event, values) => {
+    const trustedWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!trustedWindow || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
+      return { ok: false, error: 'Alta no autorizada.' };
+    }
+    return createProduct(values, { port: Number(process.env.API_PORT || 3000) });
+  });
   ipcMain.handle('products:save', (event, id, changes) => {
     const trustedWindow = BrowserWindow.fromWebContents(event.sender);
     if (!trustedWindow || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {

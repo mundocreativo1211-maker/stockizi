@@ -6,8 +6,8 @@ Esta etapa usa HTTP de Node y `pg` (node-postgres), sin elegir todavía un frame
 
 1. `index.js` inicia el programa y comprueba acceso a la tabla.
 2. `database.js` lee la configuración privada y prepara conexiones reutilizables (`Pool`).
-3. `app.js` recibe `GET /api/products` o `PATCH /api/products/:id`, valida la entrada y prepara JSON.
-4. `products.js` ejecuta SELECT o UPDATE parametrizados. `pricing.js` valida dinero y calcula el porcentaje con centavos enteros.
+3. `app.js` recibe `GET /api/products`, `POST /api/products` o `PATCH /api/products/:id`, valida la entrada y prepara JSON.
+4. `products.js` ejecuta SELECT, INSERT o UPDATE parametrizados. `pricing.js` valida precios y stock inicial sin cálculos decimales aproximados.
 
 `async` y `await` permiten esperar a PostgreSQL sin bloquear las demás solicitudes. Los alias SQL, por ejemplo `cost_price AS "costPrice"`, producen los nombres que usa nuestro JavaScript.
 
@@ -31,7 +31,7 @@ El rol `stockizi_reader` recibe SELECT únicamente y mantiene transacciones de s
 4. Detener la API con Ctrl+C y volver a ejecutar `npm run api`. Cerrar y volver a abrir Stockizi con `npm start` en otra terminal.
 5. En un producto de desarrollo, modificar la venta sin bajarla del costo, guardar y usar Actualizar. Comprobar el mismo registro por ID en pgAdmin. No duplicar los INSERT de práctica.
 
-El editor puede actualizar solo nombre, costo, venta y porcentaje. No puede crear/borrar productos ni editar stock/unidad. La conexión permite escritura solo cuando `PGUSER` es `stockizi_editor`; PostgreSQL aplica además los permisos por columna. El rol anterior conserva su acceso de consulta.
+Con 003 el editor puede actualizar solo nombre, costo, venta y porcentaje. La migración 004 agrega INSERT limitado con stock inicial, sin habilitar borrado ni cambios de stock/unidad de productos existentes. La conexión permite escritura solo cuando `PGUSER` es `stockizi_editor`; PostgreSQL aplica además los permisos por columna. El rol anterior conserva su acceso de consulta.
 
 La pantalla y la API impiden guardar venta menor al costo; igualdad permitida. La migración agrega también un CHECK. Si hay datos anteriores que lo incumplen, la migración falla: hacer ROLLBACK y revisar, sin correcciones automáticas. El porcentaje se deriva de los precios, es nulo con costo cero y nunca reemplaza el precio manual.
 
@@ -65,9 +65,25 @@ Detener con Ctrl+C. `npm start` continúa abriendo Electron por separado.
 
 La ventana no lee `.env`. El proceso principal usa `API_PORT` del entorno o 3000 por defecto. Si cambiaste el puerto de la API, establecer también `$env:API_PORT = '3001'` (con el puerto elegido) en la terminal de PowerShell antes de `npm start`.
 
-`preload.js` expone solo `listProducts` y `saveProduct`, no SQL, credenciales ni acceso general a Node. `api-client.js` limita las operaciones a rutas de productos en localhost, valida respuestas y conserva números como texto. No se relajaron las restricciones de CORS. Se siguen las [pautas de IPC de Electron](https://www.electronjs.org/docs/latest/tutorial/ipc).
+`preload.js` expone solo `listProducts`, `saveProduct` y `createProduct`, no SQL, credenciales ni acceso general a Node. `api-client.js` limita las operaciones a rutas de productos en localhost, valida respuestas y conserva números como texto. No se relajaron las restricciones de CORS. Se siguen las [pautas de IPC de Electron](https://www.electronjs.org/docs/latest/tutorial/ipc).
 
-Si falla una consulta, se conservan los datos anteriores con advertencia. Si falla un guardado, se conserva el borrador sin mostrar éxito. Un corte puede ocurrir después de que la base guardó: copiar los cambios y consultar antes de reintentar. Con cambios pendientes, Actualizar/cambiar de producto exige guardar o cancelar. Cancelar descarta el borrador. Rubros, altas, stock y unidad siguen bloqueados. Cerrar o recargar la ventana todavía puede perder un borrador sin guardar.
+Si falla una consulta, se conservan los datos anteriores con advertencia. Si falla un guardado, se conserva el borrador sin mostrar éxito. Un corte puede ocurrir después de que la base guardó: en ediciones, copiar los cambios y consultar antes de reintentar; en altas, reintentar el mismo formulario sin cambiar sus datos. Con cambios pendientes, Actualizar/cambiar de producto exige guardar o cancelar. Cancelar descarta el borrador. Rubros y cambios posteriores de stock/unidad siguen bloqueados. Cerrar o recargar la ventana todavía puede perder un borrador sin guardar.
+
+## Nuevo producto y movimiento inicial
+
+El usuario ya confirmó un alta desde la ventana visible en la API. No repetir 004 en su base. Se puede escribir el porcentaje para calcular la venta. Por pedido posterior del usuario, cambiar costo ahora conserva el porcentaje disponible y recalcula la venta; cambiar la venta manualmente recalcula el porcentaje. La API no acepta un porcentaje arbitrario: continúa derivándolo de los precios. Con costo cero se ingresa venta directamente. El precio sugerido redondea a centavos y el porcentaje efectivo guardado puede diferir por ese redondeo. La regla nueva pasó las 49 pruebas y la integración Electron/PostgreSQL temporal.
+
+Verificación más reciente: 49 pruebas aprobadas, incluida la validación de porcentaje vacío/negativo/excesivo y conservación de precio manual, y prueba completa con Electron y PostgreSQL temporal. No se requiere nueva migración ni cambio de credenciales.
+
+Requiere ejecutar una vez `database/004_initial_stock.sql` en la base de desarrollo y reiniciar API/Electron. No cambia la contraseña ni los registros anteriores. Desde Nuevo producto se cargan nombre, costo, venta, unidad y stock inicial (cero permitido). El porcentaje se calcula y no puede guardarse venta por debajo del costo. Tras el alta, stock y unidad quedan protegidos nuevamente.
+
+POST recibe exactamente esos cinco campos más `requestId` (UUID v4 generado por la pantalla). El INSERT dispara el movimiento INITIAL dentro de su misma transacción. La API devuelve 201 al crear y 200 al recuperar un alta anterior con la misma clave y datos. La clave UNIQUE evita duplicados también con solicitudes simultáneas; si se reutiliza con datos diferentes responde 409 sin modificar el producto previo. Nombre repetido con una clave nueva sigue permitido: el nombre no es un identificador único.
+
+La clave se conserva durante el borrador actual, no después de cancelar, cerrar o recargar. Ante un alta incierta, reintentar sin cambiar los datos; si se perdió el borrador, consultar el catálogo antes de iniciar otra para no duplicarla. No hay reintentos automáticos. El historial se consulta por SQL según `database/README.md`; aún no hay pantalla de movimientos.
+
+Verificación del alta: `npm test` pasa 46 pruebas. `node scripts/verify-initial-stock.cjs` ejecuta pruebas adicionales con PostgreSQL real en un servidor temporal aislado, sin .env ni puerto 5432: migraciones, permisos, inicial cero, kilos, rechazo de fracciones por unidad, rollback si falla el movimiento, reintentos concurrentes y conservación de productos anteriores. Detiene su servidor al terminar y conserva archivos temporales para diagnóstico. Requiere los binarios de PostgreSQL 18 en Windows; admite `STOCKIZI_TEST_PG_BIN`. `--electron` agrega una prueba de la ventana (requiere Playwright del runtime local o `STOCKIZI_TEST_PLAYWRIGHT`). No ejecutar estas migraciones repetidamente en la base habitual.
+
+La variante `--electron` pasó: alta de 1,2 kg, consulta del movimiento en PostgreSQL y Actualizar desde la ventana; captura revisada. Se corrigió el orden del catálogo para usar `public.products.id` numérico y no el alias `id` convertido a texto. Esto evita ordenar 1, 11, 2 y fallar la validación/paginación al tener identificadores de dos dígitos.
 
 ## Errores y límites
 
@@ -83,3 +99,31 @@ Si falla una consulta, se conservan los datos anteriores con advertencia. Si fal
 `npm test` pasa 39 pruebas de API, cliente, precios, catálogo conectado y prototipo anterior, sin tocar PostgreSQL. Incluye bloqueo bajo costo, porcentaje exacto, campos protegidos, conflictos, fallos y conservación del borrador. Se probó también Electron → IPC → API con base simulada y captura revisada. La lectura de 4 productos desde PostgreSQL se comprobó en la etapa anterior. El 15/09/2026 el usuario confirmó `COMMIT` de `003` y una edición real que se conserva al usar Actualizar. Durante la configuración se diagnosticaron usuario/base incorrectos sin mostrar contraseñas ni modificar productos. El mensaje de inicio ahora indica revisar el usuario configurado, sin mencionar siempre stockizi_reader.
 
 Documentación: [conexión de node-postgres](https://node-postgres.com/features/connecting) y [pool de conexiones](https://node-postgres.com/features/pooling).
+
+## Rubros persistentes y nombres editables
+
+Esta etapa pasó 55 pruebas automáticas y la prueba completa de Electron/PostgreSQL temporal. Después el usuario confirmó rubros/clasificación en su base habitual: no repetir `005_categories.sql`. No contiene rubros predefinidos y no cambia `.env`.
+
+- `GET /api/categories`: rubros y subcategorías en un mismo snapshot.
+- `POST /api/categories`: `{name}`; `POST /api/subcategories`: `{name, categoryId}`.
+- `PATCH /api/categories/:id` o `/api/subcategories/:id`: `{name, expectedName}`. Conserva el ID; no permite mover ni borrar.
+- POST/PATCH de productos admite opcionalmente el par `categoryId`, `subcategoryId` (IDs como texto o null). En PATCH se incluyen también los dos valores originales dentro de `expected` para detectar conflictos.
+
+Los nombres obligatorios admiten hasta 80 caracteres y se recortan en sus extremos. Nombres repetidos en el mismo nivel/rubro no crean duplicados; un reintento de alta devuelve la entrada existente (200). Un renombrado que pisa otro nombre o parte de datos antiguos devuelve 409. Subcategorías iguales pueden existir bajo rubros diferentes. Los vínculos cruzados se rechazan tanto en API como en PostgreSQL.
+
+`category-ui.js` maneja listas, filtros y el diálogo. El puente expone `listCategories` y `saveCategory` con rutas limitadas. El catálogo no deja abrir el administrador con cambios de producto pendientes. Renombrar actualiza las etiquetas, no los IDs. Si falla la carga de rubros, se muestra el error y se deshabilita esa parte; no se envían vínculos vacíos para sobrescribir datos. Los filtros son locales a los productos cargados, no una consulta global aún. Las listas de rubros se cargan completas; paginar/buscar esas listas queda para volúmenes grandes.
+
+`scripts/check-categories.cjs` amplía la prueba aislada de `scripts/verify-initial-stock.cjs --electron`: comprueba crear/renombrar, conservar relaciones, validación de rubro-padre, nombres acentuados, conflictos, permisos y filtros combinados desde la ventana. Las peticiones de producto anteriores sin clasificación siguen funcionando, incluso antes de aplicar 005.
+
+## Códigos persistentes: estado más reciente
+
+62 pruebas automáticas y prueba completa en PostgreSQL/Electron temporal aprobadas. `006_product_codes.sql` está pendiente en la base habitual. Aplicar una sola vez después de 005 y reiniciar API/Electron; no cambiar `.env`.
+
+- `GET /api/products/:id/codes`: asociaciones activas `{codes: [{id, productId, code}]}`.
+- `POST /api/products/:id/codes`: `{code}` de texto; 201 al crear, 200 al repetir sobre el mismo producto, 409 si pertenece a otro. No reasigna automáticamente.
+- `DELETE /api/products/:id/codes/:codeId`: desactiva esa asociación; no borra físicamente, ni modifica stock/producto. Repetir el retiro del mismo ID es seguro.
+- `GET /api/products/by-code?code=...`: `{product}` o `{product: null}`. Coincidencia exacta en toda la base, sin depender de la página cargada.
+
+Códigos de hasta 100 caracteres, sin controles, conservando letras y ceros. Se recortan extremos y se distinguen mayúsculas/minúsculas. SQL parametrizado e índice único parcial protegen de inyección y duplicados concurrentes. Permisos y origen mantienen los límites locales existentes; esto no habilita acceso remoto ni autenticación.
+
+`scripts/check-codes.cjs` amplía el ensayo aislado: unicidad concurrente, reintentos, código ajeno, retiro/reasignación, permisos y conservación de existencias. Con `--electron` verifica agregar varios códigos, proteger borradores, confirmar retiro y encontrar productos fuera de la primera página. Prueba con lector físico y uso desde Ventas pendientes.

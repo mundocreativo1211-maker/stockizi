@@ -71,8 +71,8 @@ main { height: 100vh; overflow: auto; padding: 20px; }
 #section-products { height: 100%; max-width: none; display: flex; flex-direction: column; gap: 12px; }
 .products-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .products-header h1 { margin: 0; }
-.catalog-area { flex: 1; min-height: 100px; display: flex; flex-direction: column; }
-.catalog-scroll { flex: 1; min-height: 0; overflow: auto; background: white; border: 1px solid #dbe2ec; border-radius: 8px; }
+.catalog-area { flex: 1 0 auto; min-height: 0; display: flex; flex-direction: column; }
+.catalog-scroll { flex: 1 0 120px; min-height: 120px; overflow: auto; background: white; border: 1px solid #dbe2ec; border-radius: 8px; }
 #results-summary { margin: 8px 0; }
 .catalog-filters { gap: 8px; }
 .catalog-filters > div { flex-basis: 140px; }
@@ -96,6 +96,15 @@ dialog { width: min(480px, calc(100% - 32px)); border: 1px solid #dbe2ec; border
 dialog::backdrop { background: rgb(23 32 51 / 45%); }
 #category-form { display: grid; gap: 10px; margin-bottom: 16px; }
 #category-error { color: #b42318; margin: 0; }
+#code-search-form { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+#code-search { flex: 1; }
+#code-search-status { margin: 0 0 8px; font-size: 13px; }
+#code-search-status:empty { display: none; }
+#code-form { display: grid; gap: 8px; }
+#codes-list { max-height: 180px; overflow: auto; padding: 0; list-style: none; }
+#codes-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; overflow-wrap: anywhere; }
+#codes-dialog button, #find-code { padding: 8px 12px; border: 1px solid #8999ae; border-radius: 6px; background: white; color: #172033; }
+#codes-dialog button, #find-code { flex-shrink: 0; }
 #products-list { list-style: none; padding: 8px; margin: 0; }
 #products-list li { padding: 0; }
 .product-row { width: 100%; text-align: left; padding: 10px; background: white; border: 1px solid transparent; border-radius: 6px; color: #172033; line-height: 1.5; }

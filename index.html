@@ -24,7 +24,7 @@
         <p>Bienvenido a Stockizi. Elegí una sección del menú para trabajar.</p>
         <div class="notice">
           <h2>Estado del proyecto</h2>
-          <p>Productos consulta PostgreSQL mediante la API local. Con el permiso de edición configurado podés modificar nombre, costo y venta. Altas y cambios de stock siguen pendientes.</p>
+          <p>Productos consulta PostgreSQL mediante la API local. Podés editar nombre, costo y venta. Nuevo producto permite cargar stock inicial después de aplicar la migración 004; ajustar existencias de productos guardados sigue pendiente.</p>
           <p>Más adelante encontrarás aquí el resumen del día, el estado de caja y las tareas pendientes.</p>
         </div>
       </section>
@@ -37,13 +37,20 @@
       <section id="section-products" data-page="products" aria-labelledby="title-products" hidden>
         <header class="products-header">
           <h1 id="title-products" tabindex="-1">Productos</h1>
-          <button type="button" id="manage-categories" disabled title="Los rubros todavía no están conectados a PostgreSQL">Administrar rubros</button>
+          <button type="button" id="manage-categories" disabled>Administrar rubros</button>
         </header>
         <div class="catalog-connection">
           <p id="connection-status" role="status">Preparando consulta a PostgreSQL…</p>
           <button type="button" id="refresh-products">Actualizar</button>
         </div>
         <div class="catalog-area">
+          <p id="categories-status" role="status" hidden></p>
+          <form id="code-search-form" role="search" aria-label="Buscar por código en toda la base">
+            <label for="code-search">Código</label>
+            <input id="code-search" type="text" maxlength="100" placeholder="Código exacto, incluidas letras y ceros" required />
+            <button id="find-code" type="submit">Buscar código</button>
+          </form>
+          <p id="code-search-status" role="status"></p>
           <div class="catalog-filters" role="search" aria-label="Buscar productos">
             <div><label for="product-search">Nombre</label><input id="product-search" type="search" placeholder="Buscar producto" /></div>
             <div><label for="category-filter">Rubro</label><select id="category-filter" disabled><option>Pendiente de conectar</option></select></div>
@@ -61,9 +68,9 @@
             <label>Rubro<select id="product-category" disabled><option>Pendiente de conectar</option></select></label>
             <label>Subcategoría<select id="product-subcategory" disabled><option>Pendiente de conectar</option></select></label>
             <label>Costo<input id="product-cost-price" type="number" min="0" step="0.01" required /></label>
-            <label>Porcentaje sobre costo<input id="product-markup" type="number" step="0.01" readonly title="Se calcula al cambiar costo o venta; con costo cero no se define" /></label>
+            <label>Porcentaje sobre costo<input id="product-markup" type="number" min="0" step="0.01" disabled title="Cambiar el porcentaje calcula la venta. Con costo cero, ingresá la venta directamente." /></label>
             <label>Venta<input id="product-sale-price" type="number" min="0" step="0.01" required /></label>
-            <label>Stock<input id="product-stock" type="number" step="0.001" disabled /></label>
+            <label>Stock (inicial al crear)<input id="product-stock" type="number" min="0" step="0.001" disabled required /></label>
             <label>Unidad<select id="product-unit" disabled>
               <option value="UNIT">Unidad</option><option value="KILOGRAM">Kilogramo</option>
               <option value="METER">Metro</option><option value="LITER">Litro</option>
@@ -73,7 +80,8 @@
             <button id="save-product" type="submit" disabled>Guardar</button>
             <button id="cancel-product" type="button" disabled>Cancelar</button>
             <button id="new-product" type="button" disabled>Nuevo producto</button>
-            <span>Se editan nombre, costo y venta. Stock y unidad quedan protegidos.</span>
+            <button id="manage-codes" type="button" disabled>Códigos</button>
+            <span>Stock y unidad se eligen al crear; luego quedan protegidos.</span>
           </div>
           <p id="product-form-status" role="status"></p>
           <p id="form-error" role="alert"></p>
@@ -87,9 +95,24 @@
       </section>
     </main>
 
+    <dialog id="codes-dialog" aria-labelledby="codes-title">
+      <h2 id="codes-title">Códigos del producto</h2>
+      <p>Todos comparten precio y stock. Agregar o quitar se guarda inmediatamente, separado de la ficha.</p>
+      <p>Se conservan letras y ceros iniciales. Mayúsculas y minúsculas se distinguen.</p>
+      <ul id="codes-list"></ul>
+      <form id="code-form">
+        <label for="new-code">Nuevo código</label>
+        <input id="new-code" type="text" maxlength="100" required autocomplete="off" />
+        <button id="add-code" type="submit">Agregar código</button>
+      </form>
+      <p id="codes-status" role="status"></p>
+      <button id="reload-codes" type="button">Volver a consultar</button>
+      <button id="close-codes" type="button">Cerrar</button>
+    </dialog>
+
     <dialog id="category-dialog" aria-labelledby="category-title">
       <h2 id="category-title">Rubros y subcategorías</h2>
-      <p>Creá rubros propios y subcategorías como Insumos o Bandejas.</p>
+      <p>Creá los nombres que uses en tu negocio. Para renombrar, elegí uno existente; sus productos seguirán asociados.</p>
       <form id="category-form">
         <label for="category-edit">Crear o renombrar</label>
         <select id="category-edit"></select>
@@ -97,7 +120,7 @@
         <select id="category-parent"></select>
         <label for="category-name">Nombre</label>
         <input id="category-name" maxlength="80" required />
-        <button type="submit">Guardar</button>
+        <button id="category-save" type="submit">Guardar nombre</button>
         <p id="category-error" role="alert"></p>
       </form>
       <button id="close-categories" type="button">Cerrar</button>
@@ -113,6 +136,8 @@
     </dialog>
 
     <script src="pricing.js"></script>
+    <script src="category-ui.js"></script>
+    <script src="codes-ui.js"></script>
     <script src="catalog.js"></script>
     <script src="navigation.js"></script>
   </body>

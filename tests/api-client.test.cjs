@@ -1,8 +1,26 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { fetchProductsPage, validatePage, saveProduct } = require('../api-client');
+const { fetchProductsPage, validatePage, saveProduct, createProduct } = require('../api-client');
 const product = { id: '9007199254740993', name: 'Azúcar', costPrice: '1000.00',
   salePrice: '1500.00', markupPercentage: null, stock: '-1.200', unit: 'KILOGRAM', active: true };
+
+test('cliente de alta envía POST fijo, valida respuesta y conserva errores seguros', async () => {
+  const result = await createProduct({ name: 'Azúcar' }, { fetchImpl: async (url, options) => {
+    assert.equal(url, 'http://127.0.0.1:3000/api/products');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.redirect, 'error');
+    return { ok: true, json: async () => ({ product }) };
+  } });
+  assert.equal(result.ok, true);
+  for (const status of [400, 403, 409, 503]) {
+    assert.equal((await createProduct({}, { fetchImpl: async () => ({ ok: false, status }) })).ok, false);
+  }
+  assert.equal((await createProduct({}, { port: -1 })).ok, false);
+  assert.equal((await createProduct({}, { fetchImpl: async () => ({ ok: true, json: async () => ({}) }) })).ok, false);
+  const failed = await createProduct({}, { fetchImpl: async () => { throw new Error('secreto'); } });
+  assert.match(failed.error, /misma solicitud/);
+  assert.doesNotMatch(failed.error, /secreto/);
+});
 
 test('guardado usa PATCH local y valida identidad de la respuesta', async () => {
   const result = await saveProduct(product.id, { name: 'Azúcar' }, { fetchImpl: async (url, options) => {
