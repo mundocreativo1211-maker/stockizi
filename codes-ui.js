@@ -106,4 +106,5 @@
       });
     },
   };
+  window.stockiziExit?.register(() => ({ busy, dirty: dialog.open && $('new-code').value !== '' }));
 })();

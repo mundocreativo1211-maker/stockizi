@@ -1,5 +1,15 @@
 # Base de datos de Stockizi
 
+## Estado actual: precio estrictamente mayor al costo (007 confirmada)
+
+Confirmación del usuario registrada el 17/09/2026: COMMIT de 007, controles sin filas inválidas y funcionamiento correcto. No repetir 001–007 en stockizi_dev. El asistente no abrió esa conexión. Los pasos siguientes se conservan para instalaciones donde 007 aún no esté aplicada.
+
+La pantalla y la API ya rechazan precios iguales o menores al costo. Antes de activar la restricción en PostgreSQL, abrir `check_product_prices.sql` en Query Tool de stockizi_dev y ejecutar: solo consulta, incluidos productos inactivos. Si devuelve filas, decidir sus precios y corregir explícitamente desde la ficha; no se aumentan ni eliminan automáticamente. Con costo cero la venta debe ser positiva.
+
+Cuando no queden filas inválidas, ejecutar UNA vez `007_sale_above_cost.sql` como administrador. No repetir 001–006 ni editar migraciones aplicadas. 007 valida la tabla y reemplaza el CHECK anterior en una transacción; si falla, ejecutar `ROLLBACK;` y revisar el error. Mantiene datos, stock y permisos. Probada en PostgreSQL temporal con igualdad preexistente (fallo sin cambios), reparación por API y bloqueo SQL posterior. Aplicación habitual confirmada por el usuario.
+
+Las instrucciones inferiores conservan etapas previas; la igualdad permitida de 003 deja de ser la regla vigente cuando se aplica 007.
+
 Estos archivos son parte del programa, no ejercicios descartables. Se guardan con Git y describen cómo construir la base de datos. Guardar un archivo no ejecuta su SQL.
 
 ## Primer paso: productos

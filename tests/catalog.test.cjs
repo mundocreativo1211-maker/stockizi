@@ -7,6 +7,24 @@ const product = { id: '1', name: 'Caja de pizza', costPrice: '1000.00', salePric
   markupPercentage: '50.00', stock: '-1', unit: 'UNIT', active: false };
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
+test('igualdad manual o por porcentaje cero bloquea Guardar y Enter sin subir el precio', async () => {
+  let saves = 0;
+  const { elements, document } = setup(async () => ({ ok: true, products: [product], nextAfterId: null }), async () => { saves++; });
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  const form = elements.get('#product-form');
+  for (const [id, value] of [['#product-sale-price', '1000'], ['#product-markup', '0']]) {
+    const target = document.querySelector(id);
+    target.value = value;
+    form.listeners.input({ target });
+    assert.equal(elements.get('#save-product').disabled, true);
+    assert.equal(Number(document.querySelector('#product-sale-price').value), 1000);
+    await form.listeners.submit({ preventDefault() {} });
+    assert.match(elements.get('#form-error').textContent, /mayor que el costo/);
+  }
+  assert.equal(saves, 0);
+});
+
 test('costo mantiene porcentaje y recalcula venta; venta manual actualiza porcentaje', async () => {
   const { elements, document } = setup(async () => ({ ok: true, products: [product], nextAfterId: null }));
   await settle();
@@ -126,7 +144,7 @@ test('edición bloquea venta bajo costo, recalcula y confirma solo después de r
   assert.equal(elements.get('#save-product').disabled, true);
   await form.listeners.submit({ preventDefault() {} });
   assert.equal(calls, 0);
-  assert.match(elements.get('#form-error').textContent, /menor/);
+  assert.match(elements.get('#form-error').textContent, /mayor/);
   document.querySelector('#product-sale-price').value = '1900';
   form.listeners.input();
   assert.equal(document.querySelector('#product-markup').value, '90.00');

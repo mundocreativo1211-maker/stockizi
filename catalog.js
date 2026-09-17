@@ -261,6 +261,7 @@ search.addEventListener('input', renderCatalog);
 document.querySelector('#clear-filters').addEventListener('click', () => { search.value = ''; window.stockiziCategories?.clearFilters(); renderCatalog(); });
 refreshButton.addEventListener('click', () => loadCatalog());
 moreButton.addEventListener('click', () => loadCatalog(true));
+window.stockiziExit?.register(() => ({ dirty: dirty(), busy: saving }));
 window.stockiziCategories?.init(updateControls, renderCatalog, canLeave);
 window.stockiziCodes?.init({
   canLeave,

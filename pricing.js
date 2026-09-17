@@ -18,7 +18,7 @@
     }
     const cost = cents(values.costPrice);
     const sale = cents(values.salePrice);
-    if (sale < cost) throw new Error('El precio de venta no puede ser menor que el costo.');
+    if (sale <= cost) throw new Error('El precio de venta debe ser mayor que el costo.');
     // Porcentaje sobre costo, redondeado a dos decimales. Con costo cero no se define.
     const markup = cost === 0n ? null : ((sale - cost) * 10000n + cost / 2n) / cost;
     if (markup !== null && markup > 999999999999n) {

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron/main');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron/main');
+const { confirmLeave } = require('./exit-dialog');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { fetchProductsPage, saveProduct, createProduct, categoryRequest, codeRequest } = require('./api-client');
@@ -27,6 +28,16 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // beforeunload no puede esperar una Promise. Solo este aviso usa IPC síncrono.
+  ipcMain.on('window:confirm-leave', (event, reason) => {
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
+      event.returnValue = false;
+      return;
+    }
+    try { event.returnValue = confirmLeave(dialog, owner, reason); }
+    catch { event.returnValue = false; }
+  });
   ipcMain.handle('codes:request', (event, operation, productId, value) => {
     if (!BrowserWindow.fromWebContents(event.sender) || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
       return { ok: false, error: 'Operación no autorizada.' };

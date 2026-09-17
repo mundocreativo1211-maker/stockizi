@@ -91,6 +91,7 @@ const { createApi } = require('../server/app');
     await require('./check-categories.cjs')({ base, admin, editor, oldId: old.id });
     await admin.query(fs.readFileSync(path.join(__dirname, '../database/006_product_codes.sql'), 'utf8'));
     await require('./check-codes.cjs')({ base, admin, editor, oldId: old.id });
+    await require('./check-strict-prices.cjs')({ base, admin, editor });
     if (process.argv.includes('--electron')) {
       const readback = await fetch(`${base}/api/products`);
       const readData = await readback.json();
@@ -149,10 +150,18 @@ const { createApi } = require('../server/app');
         assert.equal(await page.locator('#product-markup').inputValue(), '50.00');
         await require('./check-categories.cjs').window(page, admin);
         await require('./check-codes.cjs').window(page, admin);
+        await require('./check-exit-guard.cjs')(app, page, admin);
         await page.screenshot({ path: path.join(folder, 'new-product.png') });
         assert.deepEqual(errors, []);
         console.log(`OK: Electron + IPC + API + PostgreSQL real. Captura: ${path.join(folder, 'new-product.png')}`);
-      } finally { await app.close(); }
+      } finally {
+        // Limpieza exclusiva de ventanas de esta instancia de prueba, aun si
+        // falló una aserción dejando un borrador que impediría el cierre normal.
+        await app.evaluate(({ BrowserWindow }) => {
+          for (const win of BrowserWindow.getAllWindows()) win.destroy();
+        }).catch(() => {});
+        await app.close();
+      }
     }
     console.log('OK: migraciones, alta y movimiento atómicos, permisos, cero, kilos, validación, 8 reintentos concurrentes sin duplicados y edición existente.');
   } finally {

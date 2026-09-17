@@ -147,6 +147,20 @@ const changes = { name: 'Caja 12', costPrice: '1220', salePrice: '1900',
 const patch = (base, body = changes, headers = { 'Content-Type': 'application/json' }) =>
   fetch(`${base}/api/products/1`, { method: 'PATCH', headers, body: JSON.stringify(body) });
 
+test('POST y PATCH rechazan igualdad incluso cero antes de consultar SQL', async t => {
+  let calls = 0;
+  const base = await withApi(t, async () => { calls++; return { rows: [] }; });
+  for (const value of ['0', '1220']) {
+    const result = await patch(base, { ...changes, costPrice: value, salePrice: value });
+    assert.equal(result.status, 400);
+    assert.match((await result.json()).error, /mayor que el costo/);
+    const created = await fetch(`${base}/api/products`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Caja', costPrice: value, salePrice: value, stock: '0', unit: 'UNIT', requestId: randomUUID() }) });
+    assert.equal(created.status, 400);
+  }
+  assert.equal(calls, 0);
+});
+
 test('PATCH parametriza cambios y originales, recalcula porcentaje y no escribe stock', async t => {
   const base = await withApi(t, async (sql, values) => {
     assert.match(sql, /UPDATE public.products/);

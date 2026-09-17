@@ -40,7 +40,7 @@ Se mantienen los números originales de las secciones temáticas (por ejemplo, 8
 
 | Función | Código actual | Acuerdo pendiente de implementación |
 | --- | --- | --- |
-| Precio del catálogo | Permite venta igual al costo; rechaza menor | Exigir venta mayor que costo; error si no cumple, sin corrección automática |
+| Precio del catálogo | Pantalla/API/PostgreSQL exigen venta mayor que costo; 007 confirmada por el usuario | Excepciones específicas en Ventas todavía por definir; sin corrección automática |
 | Redondeo | Centavos técnicos | Opcional, general, desactivado por defecto; múltiplo más cercano y empate arriba |
 | Costo | Edición manual del valor actual | Última compra actualiza costo; historial de compras y ediciones manuales |
 | Producto activo | Campo almacenado y estado visible | Desactivar/reactivar, conservar stock/historial, aviso de existencias y filtro |
@@ -58,21 +58,22 @@ Se mantienen los números originales de las secciones temáticas (por ejemplo, 8
 | 004_initial_stock.sql | Alta idempotente y movimiento INITIAL automático | Alta y presencia en API confirmadas; consulta manual del movimiento aún sin confirmación específica |
 | 005_categories.sql | Rubros/subcategorías y vínculos opcionales | Funcionamiento confirmado |
 | 006_product_codes.sql | Asociaciones de códigos, unicidad activa y retiro lógico | Usuario informó COMMIT exitoso el 16/09/2026; falta confirmar recorrido manual de códigos en su ventana |
+| 007_sale_above_cost.sql | CHECK venta > costo; falla ante igualdades sin corregir precios | Usuario confirmó COMMIT, controles sin filas inválidas y funcionamiento; registrado el 17/09/2026 |
 
-Las confirmaciones de la base habitual provienen del usuario. Esta reorganización no abrió su conexión ni ejecutó SQL. No repetir 001–006 ni modificar retrospectivamente una migración aplicada. La regla nueva de precio estricto requerirá otro archivo numerado y validación de datos existentes.
+Las confirmaciones de la base habitual provienen del usuario, no de una conexión del asistente. No repetir 001–007 ni modificar retrospectivamente una migración aplicada. La regla estricta está en pantalla/API/PostgreSQL. Para nuevas instalaciones, check_product_prices.sql consulta sin modificar; revisar y decidir cualquier precio inválido antes de aplicar 007.
 
 ### Verificación y límites
 
-- `npm test`: 62 pruebas aprobadas en la revisión del 16/09/2026, sobre precios, API, cliente, catálogo, rubros, códigos y prototipo anterior. No significa que las funciones acordadas futuras estén probadas.
+- `npm test`: 68 pruebas aprobadas, incluidas reglas de precio estricto y protección de salida. El recorrido Electron/API/PostgreSQL temporal también pasó con 007 y cierre/recarga reales; las respuestas del diálogo nativo se simulan en la prueba. No se modificó la base habitual.
 - El recorrido completo Electron → IPC → API → PostgreSQL temporal se verificó en la etapa anterior con 001–006, incluido precio/cantidad, reintentos concurrentes, rubros, códigos y búsqueda fuera de primera página. No se vuelve a afirmar como ejecutado durante esta edición documental.
-- **Cerrar o recargar todavía puede perder cambios sin guardar.** Lo ya guardado en PostgreSQL persiste, pero eso no sustituye backups. La nueva política de backup aún no existe.
+- Cerrar o recargar normalmente avisa sobre borradores de productos, rubros/subcategorías y códigos. Seguir editando es la opción predeterminada; descartar continúa la salida sin guardar. Una operación en curso cancela ese intento: cerrar el aviso, revisar el resultado y volver a intentar. No es autoguardado ni protección ante corte de luz, caída o cierre forzado; los backups siguen pendientes.
 - No hay tabla/ejecutor de seguimiento automático de migraciones, protección completa contra pérdida de conexión, instalador productivo, autenticación de usuarios ni despliegue compartido.
 - No se importó el Excel de artículos ni el Excel de deudas; no se debe inventar información faltante.
 
-### Próximo paso, sin implementarlo en esta revisión
+### Próximo paso
 
 1. Revisar esta organización y confirmar manualmente códigos tras 006: agregar dos a un producto, buscar por ambos y rechazar uno usado por otro.
-2. Antes de implementar la venta estrictamente mayor al costo, revisar productos con igualdad y acordar cómo regularizarlos. No cambiar precios existentes silenciosamente.
+2. Comprobar manualmente el aviso de cierre/recarga: conservar un borrador, luego descartarlo explícitamente. 007 y sus controles ya fueron confirmados; no repetir la migración.
 3. Retomar la construcción incremental: planificar el selector de Nueva venta y los flujos ya acordados sin dar Compras/Clientes/Caja por existentes.
 4. Resolver las decisiones técnicas o comerciales pendientes cuando se alcance su función, especialmente almacenamiento/backups, redondeo de venta por importe, permisos y correcciones.
 5. Mantener el historial de decisiones reemplazadas separado de estas instrucciones actuales.
@@ -82,6 +83,15 @@ Las confirmaciones de la base habitual provienen del usuario. Esta reorganizaci�
 ## B. Funciones y reglas acordadas
 
 En cada función las cuatro etiquetas separan existencia, acuerdo, planificación y decisión pendiente. Los modelos de entidades futuros son diseños conceptuales, no SQL que deba ejecutarse ni promesas de funciones terminadas.
+
+### Protección de cambios al cerrar o recargar (17/09/2026)
+
+- **Implementado actualmente:** Cada formulario informa si tiene cambios o una operación pendiente. `exit-guard.js` intercepta la salida normal; `exit-dialog.js` presenta el aviso nativo mediante un canal limitado de Electron. Seguir editando, Escape y cerrar el aviso conservan el borrador. Descartar continúa el cierre/recarga, sin guardar ni deshacer datos ya confirmados. Durante una operación pendiente no se ofrece descartar y no se sale automáticamente al terminar.
+- **Acordado, falta implementar:** Sin pendiente adicional para este aviso; los backups acordados siguen en su sección propia.
+- **Planificado:** Incorporar los formularios futuros a esta protección cuando existan.
+- **Decisiones pendientes:** Recuperación persistente de borradores después de una caída; no se implementó ni se presupone autoguardado.
+
+La protección no garantiza conservación frente a cortes de luz, fallos del proceso o cierre forzado del sistema. La prueba automatizada ejecuta cierre/recarga de Electron y un guardado retenido en PostgreSQL temporal, simulando solamente las respuestas del diálogo.
 
 ### 1. Objetivo del proyecto
 
@@ -629,8 +639,8 @@ La sección `Nueva venta` reutilizará la misma búsqueda rápida. Además del l
 
 ### 9. Precio de venta
 
-- **Implementado actualmente:** Costo mantiene markup y recalcula venta; venta manual recalcula markup; costo cero da markup nulo. Se redondea a centavos, no a múltiplos comerciales. Hoy se permite venta igual al costo.
-- **Acordado, falta implementar:** Venta estrictamente mayor que costo en catálogo; bloquear cualquier resultado inválido sin aumentarlo automáticamente.
+- **Implementado actualmente:** Costo mantiene markup y recalcula venta; venta manual recalcula markup; costo cero da markup nulo. Se redondea a centavos, no a múltiplos comerciales. Pantalla/API/PostgreSQL rechazan venta igual o menor al costo; el usuario confirmó 007 y sus controles.
+- **Acordado, falta implementar:** Redondeo comercial y aplicación en Compras siguen futuros; la validación estricta ya está implementada.
 - **Planificado:** Aplicar este cálculo a Compras con revisión antes de confirmar y redondeo comercial opcional.
 - **Decisiones pendientes:** Excepciones durante Ventas, descuentos y autorización: postergadas, no aprobadas.
 
@@ -651,7 +661,7 @@ Esto es diferente de calcular un margen porcentual sobre el precio final.
 
 El porcentaje de venta representa cuánto se agrega sobre el costo.
 
-Regla funcional acordada el 16/09/2026, pendiente de implementar: en el catálogo la venta debe ser estrictamente mayor que el costo. Si el precio calculado, redondeado o manual queda igual o por debajo, mostrar un error y bloquear el guardado; no subirlo automáticamente. El código actual todavía acepta la igualdad: `pricing.js` rechaza solo `sale < cost`, y 003 usa `sale_price >= cost_price`. Se necesitará una nueva migración y revisar los productos existentes sin corregirlos silenciosamente. Las excepciones de precios/descuentos durante una venta se decidirán más adelante; no hay autorización de administrador aprobada todavía.
+Regla acordada el 16/09/2026 e implementada ahora en pantalla y API: venta estrictamente mayor que costo. Se muestra error y se bloquea Guardar/Enter si queda igual o por debajo, sin aumentar automáticamente el precio. pricing.js compara `sale <= cost`; costo cero exige venta positiva. Un porcentaje positivo muy pequeño puede redondear a igualdad y también se rechaza. Las fichas anteriores se pueden leer sin corregir automáticamente; editar exige resolver el precio inválido. La migración 007 agrega CHECK (sale_price > cost_price) validando toda la tabla y luego sustituye la restricción antigua, en una transacción. Si hay filas inválidas falla sin cambiar datos; ejecutar ROLLBACK y revisar. Las excepciones en Ventas siguen pendientes.
 
 En el formulario conectado, cambiar el porcentaje calcula la venta sugerida redondeada a centavos mediante enteros en `pricing.js`. Regla corregida por pedido del usuario: cambiar costo mantiene el porcentaje disponible y recalcula la venta; cambiar venta manualmente recalcula el porcentaje. Se conserva el porcentaje al vaciar transitoriamente el costo mientras se escribe, sin permitir guardar datos inválidos. Con costo cero el porcentaje se deshabilita, se ingresa venta directamente y se guarda porcentaje nulo; si todavía no hay porcentaje, no se inventa uno para calcular una venta. Un porcentaje inválido conserva la venta anterior pero bloquea Guardar y Enter hasta corregir o cancelar. Se validan hasta diez dígitos enteros y dos decimales y los límites almacenados. La API sigue recibiendo costo y venta y deriva el porcentaje efectivo: por redondeo a centavos puede diferir del porcentaje sugerido escrito, especialmente en costos muy pequeños. No requiere nueva migración SQL.
 
@@ -1706,7 +1716,7 @@ Primero se implementará la bandeja de tareas dentro de Stockizi. Las notificaci
 #### Producto, costos y precios
 
 - Ya están acordados varios proveedores opcionales por producto; falta el esquema de asociaciones, la posible conservación de costos por proveedor y decidir si comprar genera asociaciones automáticamente.
-- Ya está acordado el orden costo → porcentaje → redondeo opcional → manual, y que el precio de catálogo debe superar el costo. Faltan la implementación y el tratamiento explícito de registros que hoy tienen igualdad.
+- Ya está acordado el orden costo → porcentaje → redondeo opcional → manual, y que el precio de catálogo debe superar el costo. Pantalla/API/PostgreSQL aplican precio estricto; 007 y controles confirmados por el usuario. El redondeo comercial todavía no existe.
 - No confundir markup sobre costo con margen sobre venta. Sigue pendiente definir cómo calcular/presentar margen de reportes y si se persiste.
 - Movimientos de stock: INITIAL existe; faltan compras, ventas, ajustes y pérdidas, con sus permisos y auditoría.
 - Costo de última compra acordado; efectos de corregir compras antiguas, fecha retroactiva y compras posteriores siguen sin decidir.
@@ -1828,7 +1838,9 @@ Carpeta de trabajo: `C:\Users\ezema\Desktop\stockizi`. Rama en esta revisión: `
 | server/products.js / categories.js / codes.js | Consultas SQL parametrizadas |
 | database/001–006*.sql | Evolución real de estructura/permisos; no repetir migraciones aplicadas |
 | database/README.md / server/README.md | Guías técnicas con pasos e hitos históricos; contrastar estado con A |
-| tests/*.test.cjs | 62 pruebas actuales, incluidas las del prototipo anterior |
+| exit-guard.js / exit-dialog.js | Estado de borradores y aviso nativo de salida |
+| scripts/check-exit-guard.cjs | Cierre/recarga y guardado pendiente en verificación aislada |
+| tests/*.test.cjs | 68 pruebas actuales, incluidas las del prototipo anterior |
 | scripts/verify-initial-stock.cjs | Integración opcional en PostgreSQL temporal aislado; no lee .env |
 | scripts/check-categories.cjs / check-codes.cjs | Extensiones de esa prueba y recorrido Electron |
 | renderer.js | Prototipo local conservado, NO cargado por index.html |
@@ -1860,7 +1872,7 @@ Las versiones Node v26.7.0 y npm 11.19.0 son el registro de instalación de la e
 - No existen todavía tablas de clientes, proveedores, compras, ventas, pagos, cuenta corriente, cajas, gastos, fotos, tareas o usuarios de negocio.
 - Los identificadores BIGINT y NUMERIC salen como texto en JSON para conservar precisión. El modelo conceptual usa camelCase; las columnas SQL usan snake_case.
 - La unicidad de códigos activos distingue mayúsculas/minúsculas. Los nombres de rubro/subcategoría usan unicidad ignorando mayúsculas con pg_unicode_fast en PostgreSQL 18 UTF8; las tildes distinguen nombres.
-- La igualdad venta/costo sigue admitida tanto por pricing.js como por CHECK de 003. No cambiar 003: una nueva migración deberá aplicar el nuevo acuerdo cuando se implemente.
+- pricing.js rechaza igualdad. 003 se conserva sin cambios como historial; 007 reemplaza su CHECK y fue confirmada en la base habitual. check_product_prices.sql solo informa registros a revisar.
 
 ### 2. Arquitectura general prevista
 
@@ -2062,6 +2074,8 @@ El programa se llama:
 Ese nombre debe utilizarse en el proyecto, interfaz y documentación.
 
 <a id="historial"></a>
+
+Actualización del 17/09/2026: el usuario confirmó 007, controles sin filas inválidas y funcionamiento. Se implementó la protección de cierre/recarga normal, comprobada con 68 pruebas unitarias y recorrido Electron/API/PostgreSQL aislado. Las notas anteriores que indican 007 pendiente o pérdida de borradores al cerrar quedan reemplazadas por el estado activo A/B; se conservan debajo como registro histórico. La protección no cubre caídas ni reemplaza backups.
 
 ## E. Historial de decisiones y avances
 
@@ -2471,3 +2485,29 @@ Clasificación ampliada por pedido del usuario el 16/09/2026.
 ### Cierre de la revisión documental — 16/09/2026
 
 Se contrastaron los estados con package.json, index.html, módulos activos, rutas API y migraciones 001–006. Se volvió a ejecutar npm test (62 aprobadas). No se modificó código, SQL ni la base habitual. Las guías de database/ y server/ no se reescribieron en esta tarea: conservan hitos históricos y la indicación antigua de 006 pendiente; para el estado comunicado por el usuario prevalece A. El backup de base y la prueba manual de códigos siguen pendientes, no se confunden con el commit de Git.
+
+
+
+### Precio estricto implementado en pantalla/API — 16/09/2026
+
+64 pruebas aprobadas y PostgreSQL/Electron temporal con 007. Se comprobó fallo de migración por igualdad sin cambiar datos, corrección explícita por API y rechazo SQL de igualdad después. Migración habitual pendiente; no se leyeron credenciales ni se modificaron productos reales. Las pruebas previas de 62 casos corresponden a la reorganización, no se borran.
+
+Las siguientes redacciones de la revisión anterior quedan superadas por el estado actual de A/B/D:
+
+> | Precio del catálogo | Permite venta igual al costo; rechaza menor | Exigir venta mayor que costo; error si no cumple, sin corrección automática |
+
+> La regla nueva de precio estricto requerirá otro archivo numerado y validación de datos existentes.
+
+> - `npm test`: 62 pruebas aprobadas en la revisión del 16/09/2026, sobre precios, API, cliente, catálogo, rubros, códigos y prototipo anterior. No significa que las funciones acordadas futuras estén probadas.
+
+> 2. Antes de implementar la venta estrictamente mayor al costo, revisar productos con igualdad y acordar cómo regularizarlos. No cambiar precios existentes silenciosamente.
+
+> Hoy se permite venta igual al costo.
+
+> - **Acordado, falta implementar:** Venta estrictamente mayor que costo en catálogo; bloquear cualquier resultado inválido sin aumentarlo automáticamente.
+
+> Regla funcional acordada el 16/09/2026, pendiente de implementar: en el catálogo la venta debe ser estrictamente mayor que el costo. Si el precio calculado, redondeado o manual queda igual o por debajo, mostrar un error y bloquear el guardado; no subirlo automáticamente. El código actual todavía acepta la igualdad: `pricing.js` rechaza solo `sale < cost`, y 003 usa `sale_price >= cost_price`. Se necesitará una nueva migración y revisar los productos existentes sin corregirlos silenciosamente. Las excepciones de precios/descuentos durante una venta se decidirán más adelante; no hay autorización de administrador aprobada todavía.
+
+> Faltan la implementación y el tratamiento explícito de registros que hoy tienen igualdad.
+
+> - La igualdad venta/costo sigue admitida tanto por pricing.js como por CHECK de 003. No cambiar 003: una nueva migración deberá aplicar el nuevo acuerdo cuando se implemente.

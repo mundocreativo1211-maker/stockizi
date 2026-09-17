@@ -25,11 +25,15 @@ test('stock inicial exacto: unidades enteras y hasta tres decimales para otras m
   assert.throws(() => validateInitial({ ...input, unit: 'OTRO' }));
 });
 
-test('precio menor al costo bloqueado; igualdad y cero permitidos; porcentaje exacto', () => {
+test('venta debe superar costo, incluso cero; porcentaje exacto', () => {
   const input = { name: 'Caja 12', costPrice: '1220', salePrice: '1900' };
   assert.equal(validate(input).markupPercentage, '55.74');
-  assert.throws(() => validate({ ...input, salePrice: '1219.99' }), /menor/);
-  assert.equal(validate({ ...input, salePrice: '1220' }).markupPercentage, '0.00');
+  assert.throws(() => validate({ ...input, salePrice: '1219.99' }), /mayor/);
+  assert.throws(() => validate({ ...input, salePrice: '1220' }), /mayor/);
+  assert.throws(() => validate({ ...input, costPrice: '0', salePrice: '0' }), /mayor/);
+  assert.equal(validate({ ...input, costPrice: '0', salePrice: '0.01' }).markupPercentage, null);
+  assert.equal(validate({ ...input, salePrice: '1220.01' }).salePrice, '1220.01');
+  assert.throws(() => validate({ ...input, costPrice: '0.01', salePrice: saleFromMarkup('0.01', '1') }), /mayor/);
   assert.equal(validate({ ...input, costPrice: '0' }).markupPercentage, null);
   assert.equal(cents('9999999999.99'), 999999999999n);
   assert.equal(validate({ ...input, costPrice: '0.10', salePrice: '0.30' }).markupPercentage, '200.00');

@@ -134,5 +134,10 @@
     options(field('subcategory-filter'), [], 'Todas las subcategorías');
     field('subcategory-filter').disabled = true;
   }
+  window.stockiziExit?.register(() => ({
+    busy,
+    dirty: field('category-dialog').open &&
+      field('category-name').value !== (selectedItem().item?.name || ''),
+  }));
   window.stockiziCategories = { init, refresh, fillDetail, selection, matches, setEnabled, clearFilters };
 })();
