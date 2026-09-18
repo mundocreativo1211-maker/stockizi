@@ -1,4 +1,5 @@
 const http = require('node:http');
+const { productFilters } = require('../product-filters');
 const { listProducts, updateProduct, createProduct } = require('./products');
 const pricing = require('../pricing');
 const { validId, classification, listCategories, saveCategory } = require('./categories');
@@ -203,6 +204,13 @@ function createApi(database) {
       sendJson(response, 405, { error: 'Usá GET para consultar o POST para crear productos.' });
       return;
     }
+    let filters;
+    try {
+      for (const key of url.searchParams.keys()) {
+        if (!['afterId', 'name', 'categoryId', 'subcategoryId'].includes(key) || url.searchParams.getAll(key).length !== 1) throw new Error('Filtros inválidos.');
+      }
+      filters = productFilters(Object.fromEntries([...url.searchParams].filter(([key]) => key !== 'afterId')));
+    } catch { return sendJson(response, 400, { error: 'Revisá los filtros de búsqueda.' }); }
     const afterId = url.searchParams.get('afterId') || '0';
     if (!/^\d{1,19}$/.test(afterId) || BigInt(afterId) > 9223372036854775807n) {
       sendJson(response, 400, { error: 'afterId debe ser un identificador válido.' });
@@ -210,7 +218,7 @@ function createApi(database) {
     }
     try {
       // await espera la respuesta de PostgreSQL antes de responder al navegador.
-      const result = await listProducts(database, afterId);
+      const result = await listProducts(database, afterId, filters);
       sendJson(response, 200, result);
     } catch {
       // Nunca devolvemos contraseñas, configuración ni errores internos de SQL.

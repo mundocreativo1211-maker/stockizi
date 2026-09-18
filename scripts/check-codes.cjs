@@ -59,7 +59,14 @@ module.exports.window = async (page, admin) => {
   await page.waitForFunction(() => document.querySelector('#codes-status').textContent.startsWith('Código quitado'));
   await page.locator('#close-codes').click();
   await page.locator('#find-code').click();
-  await page.waitForFunction(() => document.querySelector('#code-search-status').textContent.startsWith('No se encontró'));
+  await page.waitForFunction(() => document.querySelector('#code-search-status').textContent.startsWith('Sin resultados'));
+  assert.equal(await page.locator('.product-row').count(), 0);
+  assert.equal(await page.locator('#load-more-products').isVisible(), false);
+  assert.equal(await page.locator('#product-name').inputValue(), 'Alta desde ventana');
+  await page.locator('#code-search').fill('ABC-42');
+  await page.locator('#find-code').click();
+  await page.waitForFunction(() => document.querySelector('#code-search-status').textContent.startsWith('Encontrado:'));
+  assert.equal(await page.locator('.product-row').count(), 1);
   // Producto fuera de la primera página: la búsqueda debe traerlo igual.
   await admin.query("INSERT INTO public.products(name,cost_price,sale_price) SELECT 'Relleno '||n,1,2 FROM generate_series(1,105) n");
   const remoteId = (await admin.query("INSERT INTO public.products(name,cost_price,sale_price) VALUES('Fuera de página',1,2) RETURNING id::text")).rows[0].id;

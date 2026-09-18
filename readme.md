@@ -29,7 +29,7 @@ Se mantienen los números originales de las secciones temáticas (por ejemplo, 8
 - Electron + HTML/CSS/JavaScript; API HTTP nativa de Node con `pg`; PostgreSQL local `stockizi_dev`. React y TypeScript no están implementados.
 - Productos: alta con stock inicial; edición de nombre, costo, venta y porcentaje; rubros/subcategorías opcionales con nombres propios; múltiples códigos de texto.
 - Al crear, producto y movimiento INITIAL se guardan juntos. Stock inicial no negativo; UNIT entero; kilo/metro/litro hasta tres decimales. Stock/unidad de un producto guardado permanecen protegidos.
-- Catálogo por páginas de 100. Nombre/rubro/subcategoría filtran lo cargado; búsqueda exacta por código consulta toda la base. IDs distinguen productos con nombres repetidos.
+- Catálogo por páginas de 100 coincidencias. Nombre/rubro/subcategoría consultan toda la base con Buscar o Enter; búsqueda exacta por código también global. IDs distinguen productos con nombres repetidos.
 - Guardar exige cambios válidos y respuesta confirmada; errores conservan el borrador. Cancelar restaura. Navegación conserva borrador; cambiar de producto/actualizar con cambios pendientes se bloquea.
 - Rubros y códigos tienen administración propia. Desactivar un código no equivale a desactivar un producto; esto último todavía no tiene operación de pantalla/API.
 - Caja y Nueva venta son secciones informativas; Inicio muestra el estado del prototipo. No hay ventas, compras, clientes, pagos, cuenta corriente, gastos, fotos ni backups automáticos.
@@ -64,7 +64,7 @@ Las confirmaciones de la base habitual provienen del usuario, no de una conexió
 
 ### Verificación y límites
 
-- `npm test`: 68 pruebas aprobadas, incluidas reglas de precio estricto y protección de salida. El recorrido Electron/API/PostgreSQL temporal también pasó con 007 y cierre/recarga reales; las respuestas del diálogo nativo se simulan en la prueba. No se modificó la base habitual.
+- `npm test`: 73 pruebas aprobadas, incluidas búsqueda completa, código sin coincidencias, reglas de precio estricto y protección de salida. El recorrido Electron/API/PostgreSQL temporal también pasó con filtros, paginación, 007 y cierre/recarga reales; las respuestas del diálogo nativo se simulan en la prueba. No se modificó la base habitual.
 - El recorrido completo Electron → IPC → API → PostgreSQL temporal se verificó en la etapa anterior con 001–006, incluido precio/cantidad, reintentos concurrentes, rubros, códigos y búsqueda fuera de primera página. No se vuelve a afirmar como ejecutado durante esta edición documental.
 - Cerrar o recargar normalmente avisa sobre borradores de productos, rubros/subcategorías y códigos. Seguir editando es la opción predeterminada; descartar continúa la salida sin guardar. Una operación en curso cancela ese intento: cerrar el aviso, revisar el resultado y volver a intentar. No es autoguardado ni protección ante corte de luz, caída o cierre forzado; los backups siguen pendientes.
 - No hay tabla/ejecutor de seguimiento automático de migraciones, protección completa contra pérdida de conexión, instalador productivo, autenticación de usuarios ni despliegue compartido.
@@ -73,7 +73,7 @@ Las confirmaciones de la base habitual provienen del usuario, no de una conexió
 ### Próximo paso
 
 1. Revisar esta organización y confirmar manualmente códigos tras 006: agregar dos a un producto, buscar por ambos y rechazar uno usado por otro.
-2. Comprobar manualmente el aviso de cierre/recarga: conservar un borrador, luego descartarlo explícitamente. 007 y sus controles ya fueron confirmados; no repetir la migración.
+2. El usuario confirmó el aviso de cierre/recarga. Comprobar ahora la búsqueda completa: reiniciar API y Electron, combinar nombre/rubro/subcategoría y usar Buscar o Enter. No requiere nueva migración ni cambios en .env; no repetir 007.
 3. Retomar la construcción incremental: planificar el selector de Nueva venta y los flujos ya acordados sin dar Compras/Clientes/Caja por existentes.
 4. Resolver las decisiones técnicas o comerciales pendientes cuando se alcance su función, especialmente almacenamiento/backups, redondeo de venta por importe, permisos y correcciones.
 5. Mantener el historial de decisiones reemplazadas separado de estas instrucciones actuales.
@@ -577,13 +577,13 @@ Implementación actual: `product_codes` relaciona `product_id` con códigos de t
 
 En la ficha de un producto ya guardado, **Códigos** permite agregar y quitar. Cada operación se guarda inmediatamente, separada del botón Guardar de la ficha; no se abre con cambios pendientes. Quitar pide una segunda confirmación y desactiva la asociación sin borrar el producto ni alterar stock/precio. Un código quitado puede volver a asignarse explícitamente; la asociación anterior se conserva inactiva. Esto no constituye todavía auditoría de empleados ni de fecha/motivo de retiro.
 
-Un índice único de códigos activos impide compartir código entre dos productos, incluso con solicitudes simultáneas. Repetir un alta para el mismo producto devuelve la asociación existente. Tras un fallo incierto, consultar otra vez antes de seguir. **Buscar código** (o Enter en ese campo) consulta toda la base y selecciona el producto, limpiando filtros de nombre y rubro. Nombre/rubro siguen buscando solo entre productos cargados. No se reemplaza un borrador sin guardar. La conexión con Nueva venta y la prueba con lector físico quedan pendientes.
+Un índice único de códigos activos impide compartir código entre dos productos, incluso con solicitudes simultáneas. Repetir un alta para el mismo producto devuelve la asociación existente. Tras un fallo incierto, consultar otra vez antes de seguir. **Buscar código** (o Enter en ese campo) consulta toda la base y selecciona el producto, limpiando filtros de nombre y rubro. Nombre/rubro/subcategoría también consultan toda la base mediante Buscar. No se reemplaza un borrador sin guardar. La conexión con Nueva venta y la prueba con lector físico quedan pendientes.
 
 El alcance inicial no manejará stock separado por color o presentación. Esa posibilidad queda registrada como idea futura mediante variantes de producto.
 
 #### 8.4. Rubros, categorías y búsqueda visual
 
-- **Implementado actualmente:** Rubros/subcategorías propios y renombrables; clasificación opcional por ID y filtros locales combinados; sin borrar ni mover categorías.
+- **Implementado actualmente:** Rubros/subcategorías propios y renombrables; clasificación opcional por ID y filtros combinados en PostgreSQL; sin borrar ni mover categorías.
 - **Acordado, falta implementar:** No hay cambios adicionales a nombres propios ya implementados.
 - **Planificado:** Búsqueda visual por foto y mejora visual inspirada en StockFácil.
 - **Decisiones pendientes:** Ampliaciones de jerarquía, eliminación/traslado y paginación de listas de categorías si el volumen lo requiere.
@@ -621,7 +621,9 @@ Cotillón
 
 La vista conectada permite crear y renombrar ambos nombres, sin listas predefinidas, mediante Administrar rubros. Rubro y subcategoría son opcionales; los productos anteriores quedan Sin rubro hasta asignarlos. Renombrar conserva el ID y las relaciones. La base impide asignar una subcategoría de otro rubro mediante una clave foránea compuesta. No permite nombres duplicados ignorando mayúsculas dentro del mismo nivel y rubro (conserva diferencias de tildes). Las mismas subcategorías pueden existir en rubros distintos. Reintentar un alta con el mismo nombre recupera la existente; renombrar exige el nombre original para no pisar cambios simultáneos. No hay traslado ni eliminación.
 
-Los filtros por nombre, rubro y subcategoría se combinan sobre los productos cargados. Si quedan páginas, la pantalla avisa; todavía no es una búsqueda de toda la base. Cambiar el rubro limpia la subcategoría del borrador para evitar vínculos cruzados. Un fallo de consulta de rubros deshabilita su edición/filtro y muestra el error, sin borrar clasificaciones guardadas ni impedir consultar precios.
+Los filtros por nombre, rubro y subcategoría se combinan en PostgreSQL antes de paginar. Buscar o Enter aplica la consulta; cambiar un filtro solo indica que está pendiente. Nombre busca fragmentos literales sin distinguir mayúsculas ni tildes (conserva la equivalencia previa n/ñ); % y _ no son comodines. Cargar más conserva los filtros de la consulta aplicada aunque se hayan escrito otros. Limpiar filtros consulta de nuevo. Un fallo conserva la lista anterior con advertencia; un borrador impide reemplazarla hasta guardar o cancelar. Cambiar el rubro limpia la subcategoría del borrador para evitar vínculos cruzados. Un fallo de consulta de rubros deshabilita su edición/filtro y muestra el error, sin borrar clasificaciones guardadas ni impedir consultar precios.
+
+Después de guardar o encontrar por código, se muestra el producto confirmado como resultado individual y se descarta el cursor anterior, evitando mezclar páginas con productos que ya no coinciden. Buscar o Actualizar vuelve al listado. No hay total exacto de coincidencias ni índice específico para fragmentos: se deberán medir consultas con un catálogo real antes de optimizar índices. La búsqueda actual incluye activos e inactivos; las reglas del futuro selector de Ventas siguen pendientes de implementación.
 
 Distribución acordada para escritorio: catálogo y filtros arriba, con desplazamiento propio de la lista; formulario compacto siempre visible abajo. En pantallas pequeñas se permite desplazar la página para mantener accesibles todos los campos.
 
@@ -1711,6 +1713,13 @@ Primero se implementará la bandeja de tareas dentro de Stockizi. Las notificaci
 
 ## C. Decisiones pendientes e ideas futuras
 
+### Sugerencias de búsqueda (idea del 17/09/2026)
+
+- **Implementado actualmente:** Un código inexistente deja la lista vacía con «Sin resultados para ese código», sin presentar el listado anterior como coincidencias. Conserva la ficha anterior; si hay un borrador pendiente, la búsqueda se bloquea antes de reemplazar datos. Buscar/Actualizar o encontrar otro código recupera los resultados. Un fallo de conexión no se presenta como ausencia de coincidencias.
+- **Acordado, falta implementar:** No agregar sugerencias en esta etapa; primero mantener clara la búsqueda exacta.
+- **Planificado:** Sugerencias visualmente secundarias, en gris y separadas de resultados exactos, por nombres o códigos parecidos. Pueden implementarse sin IA; no elegir ni agregar productos automáticamente.
+- **Decisiones pendientes:** Cuándo ofrecer sugerencias, criterios de semejanza y presentación accesible. Evaluar IA solo si aporta comprensión de pedidos en lenguaje natural; proveedor, costo y privacidad no están decididos. No hay servicio de IA conectado ni se envían datos a terceros.
+
 ### 40. Decisiones pendientes actualizadas al 16/09/2026
 
 #### Producto, costos y precios
@@ -1840,7 +1849,9 @@ Carpeta de trabajo: `C:\Users\ezema\Desktop\stockizi`. Rama en esta revisión: `
 | database/README.md / server/README.md | Guías técnicas con pasos e hitos históricos; contrastar estado con A |
 | exit-guard.js / exit-dialog.js | Estado de borradores y aviso nativo de salida |
 | scripts/check-exit-guard.cjs | Cierre/recarga y guardado pendiente en verificación aislada |
-| tests/*.test.cjs | 68 pruebas actuales, incluidas las del prototipo anterior |
+| product-filters.js | Valida filtros compartidos por API y cliente Electron |
+| scripts/check-product-search.cjs | Comprueba búsqueda y paginación con PostgreSQL/Electron temporal |
+| tests/*.test.cjs | 73 pruebas actuales, incluidas las del prototipo anterior |
 | scripts/verify-initial-stock.cjs | Integración opcional en PostgreSQL temporal aislado; no lee .env |
 | scripts/check-categories.cjs / check-codes.cjs | Extensiones de esa prueba y recorrido Electron |
 | renderer.js | Prototipo local conservado, NO cargado por index.html |
@@ -2074,6 +2085,10 @@ El programa se llama:
 Ese nombre debe utilizarse en el proyecto, interfaz y documentación.
 
 <a id="historial"></a>
+
+Clarificación del 17/09/2026: ante código inexistente ya no se mantiene visible el listado anterior. Se muestra una lista vacía y «Sin resultados», conservando la ficha. Reemplaza el comportamiento anterior que podía confundirse con coincidencias. Sugerencias visuales/IA quedan como idea futura en C. Verificado con 73 pruebas y recorrido aislado de Electron/PostgreSQL.
+
+Avance de búsqueda del 17/09/2026: reemplazada la regla anterior «nombre/rubro/subcategoría solo filtran productos cargados» por consultas globales parametrizadas, con Buscar/Enter y páginas de 100 coincidencias. Se conserva la búsqueda literal sin tildes. Las notas previas quedan como historia, no como comportamiento vigente. Verificación: 72 pruebas unitarias y recorrido Electron/PostgreSQL aislado, incluido producto fuera de primera página y 105 coincidencias paginadas sin duplicados. Sin migración nueva ni modificación de datos habituales.
 
 Actualización del 17/09/2026: el usuario confirmó 007, controles sin filas inválidas y funcionamiento. Se implementó la protección de cierre/recarga normal, comprobada con 68 pruebas unitarias y recorrido Electron/API/PostgreSQL aislado. Las notas anteriores que indican 007 pendiente o pérdida de borradores al cerrar quedan reemplazadas por el estado activo A/B; se conservan debajo como registro histórico. La protección no cubre caídas ni reemplaza backups.
 

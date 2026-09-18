@@ -100,8 +100,11 @@
           if (result.product) {
             actions.found(result.product);
             $('code-search-status').textContent = `Encontrado: ${result.product.name}. Se limpiaron los filtros de nombre y rubro.`;
-          } else $('code-search-status').textContent = 'No se encontró ese código. La selección anterior no cambió.';
-        } catch (error) { $('code-search-status').textContent = error.message || 'No se pudo buscar el código.'; }
+          } else {
+            actions.notFound();
+            $('code-search-status').textContent = 'Sin resultados para ese código. La ficha anterior se conserva; no es una coincidencia.';
+          }
+        } catch (error) { $('code-search-status').textContent = (error.message || 'No se pudo buscar el código.') + ' No se actualizaron los resultados.'; }
         finally { actions.setBusy(false); }
       });
     },

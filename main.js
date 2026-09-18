@@ -70,13 +70,13 @@ app.whenReady().then(() => {
     }
     return saveProduct(id, changes, { port: Number(process.env.API_PORT || 3000) });
   });
-  ipcMain.handle('products:list', (event, afterId) => {
+  ipcMain.handle('products:list', (event, afterId, filters) => {
     const trustedWindow = BrowserWindow.fromWebContents(event.sender);
     if (!trustedWindow || event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== indexUrl) {
       return { ok: false, error: 'Consulta no autorizada.' };
     }
     // No leemos .env ni entregamos credenciales a Electron. El puerto no es secreto.
-    return fetchProductsPage(afterId, { port: Number(process.env.API_PORT || 3000) });
+    return fetchProductsPage(afterId, { port: Number(process.env.API_PORT || 3000), filters });
   });
   createWindow();
 

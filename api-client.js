@@ -1,4 +1,5 @@
 // Este módulo corre en el proceso principal, no dentro de la página.
+const { productFilters } = require('./product-filters');
 function validId(value) {
   return typeof value === 'string' && /^\d{1,19}$/.test(value) &&
     BigInt(value) <= 9223372036854775807n;
@@ -29,13 +30,15 @@ function validatePage(data, afterId) {
   return data;
 }
 
-async function fetchProductsPage(afterId = '0', { port = 3000, fetchImpl = fetch } = {}) {
+async function fetchProductsPage(afterId = '0', { port = 3000, fetchImpl = fetch, filters = {} } = {}) {
   if (!validId(afterId) || !Number.isInteger(port) || port < 1 || port > 65535) {
     return { ok: false, error: 'La configuración de la consulta no es válida.' };
   }
   try {
-    // Dirección fija local: la pantalla solo puede elegir el cursor, no otra URL.
-    const response = await fetchImpl(`http://127.0.0.1:${port}/api/products?afterId=${afterId}`, {
+    const params = new URLSearchParams({ afterId });
+    for (const [key, value] of Object.entries(productFilters(filters))) if (value) params.set(key, value);
+    // Dirección fija local: solo cursor y filtros validados, no otra URL.
+    const response = await fetchImpl(`http://127.0.0.1:${port}/api/products?${params}`, {
       method: 'GET', redirect: 'error', signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) throw new Error('API no disponible');

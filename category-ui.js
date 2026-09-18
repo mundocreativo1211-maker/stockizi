@@ -139,5 +139,6 @@
     dirty: field('category-dialog').open &&
       field('category-name').value !== (selectedItem().item?.name || ''),
   }));
-  window.stockiziCategories = { init, refresh, fillDetail, selection, matches, setEnabled, clearFilters };
+  const filters = () => ({ categoryId: ready ? field('category-filter').value || '' : '', subcategoryId: ready ? field('subcategory-filter').value || '' : '' });
+  window.stockiziCategories = { init, refresh, fillDetail, selection, matches, setEnabled, clearFilters, filters };
 })();

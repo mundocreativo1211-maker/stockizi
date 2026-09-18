@@ -182,14 +182,17 @@ function setup(listProducts, saveProduct, createProduct) {
       setAttribute(name, value) { this.attributes[name] = value; },
       append(child) { this.children.push(child); },
       querySelectorAll() { return this.children.flatMap(child => child.children); },
-      reset() { for (const [key, field] of elements) if (key.startsWith('#product-')) field.value = ''; },
+      reset() { for (const [key, field] of elements) if (key.startsWith('#product-') && key !== '#product-search') field.value = ''; },
     };
   }
   const document = { querySelector(key) {
     if (!elements.has(key)) elements.set(key, element());
     return elements.get(key);
   }, createElement: element };
-  const context = vm.createContext({ document, crypto: require('node:crypto'), window: { stockizi: { listProducts, saveProduct, createProduct } } });
+  const context = vm.createContext({ document, crypto: require('node:crypto'), window: {
+    stockizi: { listProducts, saveProduct, createProduct },
+    stockiziCodes: { setEnabled() {}, init(actions) { this.actions = actions; } },
+  } });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../pricing.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../catalog.js'), 'utf8'), context);
   return { context, elements, document };
@@ -207,6 +210,26 @@ test('catálogo conectado muestra datos reales, distingue IDs y no recalcula el 
   elements.get('#product-form').listeners.submit({ preventDefault() { prevented = true; } });
   assert.equal(prevented, true);
   assert.equal(vm.runInContext('catalog.length', context), 1);
+});
+
+test('código inexistente vacía solo resultados, conserva ficha y Actualizar recupera listado', async () => {
+  const { elements, document, context } = setup(async () => ({ ok: true, products: [product], nextAfterId: '1' }));
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  context.window.stockiziCodes.actions.notFound();
+  assert.equal(elements.get('#products-list').children.length, 0);
+  assert.equal(elements.get('#load-more-products').hidden, true);
+  assert.equal(document.querySelector('#product-name').value, product.name);
+  assert.equal(context.window.stockiziCodes.actions.getProduct().id, product.id);
+  assert.match(elements.get('#results-summary').textContent, /Sin resultados/);
+  document.querySelector('#product-name').value = 'Borrador';
+  assert.equal(context.window.stockiziCodes.actions.canLeave(), false);
+  assert.equal(document.querySelector('#product-name').value, 'Borrador');
+  elements.get('#cancel-product').listeners.click();
+  assert.equal(elements.get('#products-list').children.length, 0);
+  await elements.get('#refresh-products').listeners.click();
+  assert.equal(elements.get('#products-list').children.length, 1);
+  assert.equal(elements.get('#load-more-products').hidden, false);
 });
 
 test('distingue error inicial de catálogo vacío y permite reintentar', async () => {
@@ -232,20 +255,41 @@ test('al fallar actualización conserva selección y advierte que los datos son 
   assert.match(elements.get('#connection-status').textContent, /desactualizados/);
 });
 
-test('cargar más conserva productos, la búsqueda local avisa su alcance y Actualizar reinicia', async () => {
+test('cargar más conserva filtros aplicados; Buscar reinicia y no filtra localmente', async () => {
   const cursors = [];
-  const { elements } = setup(async cursor => {
-    cursors.push(cursor);
+  const { elements } = setup(async (cursor, filters) => {
+    cursors.push([cursor, filters.name]);
+    if (filters.name) return { ok: true, products: [{ ...product, id: '150', name: 'Azúcar' }], nextAfterId: null };
     return cursor === '0' ? { ok: true, products: [product], nextAfterId: '1' }
       : { ok: true, products: [{ ...product, id: '2', name: 'Azúcar' }], nextAfterId: null };
   });
   await settle();
-  assert.match(elements.get('#results-summary').textContent, /solo los cargados/);
-  await elements.get('#load-more-products').listeners.click();
-  assert.equal(elements.get('#products-list').children.length, 2);
+  assert.match(elements.get('#results-summary').textContent, /toda la base/);
   elements.get('#product-search').value = 'AZUCAR';
   elements.get('#product-search').listeners.input();
+  await elements.get('#load-more-products').listeners.click();
+  assert.equal(elements.get('#products-list').children.length, 2);
+  assert.match(elements.get('#search-status').textContent, /pendientes/);
+  await elements.get('#catalog-search-form').listeners.submit({ preventDefault() {} });
   assert.equal(elements.get('#products-list').children.length, 1);
   await elements.get('#refresh-products').listeners.click();
-  assert.deepEqual(cursors, ['0', '1', '0']);
+  assert.deepEqual(cursors, [['0', ''], ['1', ''], ['0', 'AZUCAR'], ['0', 'AZUCAR']]);
+});
+
+test('búsqueda fallida conserva lista y borrador bloquea Buscar', async () => {
+  let calls = 0;
+  const { elements, document } = setup(async () => ++calls === 1
+    ? { ok: true, products: [product], nextAfterId: null } : { ok: false });
+  await settle();
+  elements.get('#products-list').children[0].children[0].listeners.click();
+  document.querySelector('#product-name').value = 'Borrador';
+  document.querySelector('#product-search').value = 'Otra búsqueda';
+  await elements.get('#catalog-search-form').listeners.submit({ preventDefault() {} });
+  assert.equal(calls, 1);
+  assert.equal(document.querySelector('#product-name').value, 'Borrador');
+  elements.get('#cancel-product').listeners.click();
+  await elements.get('#catalog-search-form').listeners.submit({ preventDefault() {} });
+  assert.equal(calls, 2);
+  assert.equal(elements.get('#products-list').children.length, 1);
+  assert.match(elements.get('#connection-status').textContent, /última consulta/);
 });

@@ -61,7 +61,7 @@ Detener con Ctrl+C. `npm start` continúa abriendo Electron por separado.
 
 1. Mantener `npm run api` abierto en una terminal.
 2. En otra terminal, ejecutar `npm start`. Si la ventana estaba abierta con la versión anterior, cerrarla y abrirla de nuevo para cargar el nuevo puente.
-3. Ir a Productos: consultar fichas, buscar por nombre o apretar Actualizar. La carga trae hasta 100 registros y Cargar más solicita la próxima página. La búsqueda se limita a lo cargado y lo indica cuando quedan páginas.
+3. Ir a Productos: combinar nombre/rubro/subcategoría y apretar Buscar o Enter. La consulta abarca toda la base; trae hasta 100 coincidencias y Cargar más conserva los filtros aplicados. Cambiar campos no aplica filtros hasta consultar. Un borrador pendiente bloquea el reemplazo del listado.
 
 La ventana no lee `.env`. El proceso principal usa `API_PORT` del entorno o 3000 por defecto. Si cambiaste el puerto de la API, establecer también `$env:API_PORT = '3001'` (con el puerto elegido) en la terminal de PowerShell antes de `npm start`.
 
@@ -111,7 +111,13 @@ Esta etapa pasó 55 pruebas automáticas y la prueba completa de Electron/Postgr
 
 Los nombres obligatorios admiten hasta 80 caracteres y se recortan en sus extremos. Nombres repetidos en el mismo nivel/rubro no crean duplicados; un reintento de alta devuelve la entrada existente (200). Un renombrado que pisa otro nombre o parte de datos antiguos devuelve 409. Subcategorías iguales pueden existir bajo rubros diferentes. Los vínculos cruzados se rechazan tanto en API como en PostgreSQL.
 
-`category-ui.js` maneja listas, filtros y el diálogo. El puente expone `listCategories` y `saveCategory` con rutas limitadas. El catálogo no deja abrir el administrador con cambios de producto pendientes. Renombrar actualiza las etiquetas, no los IDs. Si falla la carga de rubros, se muestra el error y se deshabilita esa parte; no se envían vínculos vacíos para sobrescribir datos. Los filtros son locales a los productos cargados, no una consulta global aún. Las listas de rubros se cargan completas; paginar/buscar esas listas queda para volúmenes grandes.
+`category-ui.js` maneja listas, filtros y el diálogo. El puente expone `listCategories` y `saveCategory` con rutas limitadas. El catálogo no deja abrir el administrador con cambios de producto pendientes. Renombrar actualiza las etiquetas, no los IDs. Si falla la carga de rubros, se muestra el error y se deshabilita esa parte; no se envían vínculos vacíos para sobrescribir datos. Los filtros de productos se consultan en PostgreSQL. Las listas de rubros se cargan completas; paginar/buscar esas listas queda para volúmenes grandes.
+
+## Búsqueda completa (17/09/2026)
+
+GET /api/products acepta afterId, name (hasta 200 caracteres), categoryId y subcategoryId (requiere rubro). Rechaza parámetros repetidos/desconocidos e IDs inválidos. `product-filters.js` comparte validación entre API y cliente Electron; `products.js` aplica condiciones parametrizadas antes de LIMIT. Mantener los mismos filtros al pedir la siguiente página.
+
+El nombre usa normalización NFD, eliminación de marcas y minúsculas; strpos busca el fragmento literalmente, sin interpretar % o _. Requiere PostgreSQL UTF8 como la instalación actual, no extensiones ni migración nueva. Referencia: [funciones de texto de PostgreSQL](https://www.postgresql.org/docs/18/functions-string.html). No hay índice de búsqueda por fragmentos; medir con volumen real antes de incorporarlo. `scripts/check-product-search.cjs` verifica filtros combinados, tildes, caracteres literales, paginación y búsqueda fuera de la primera página, exclusivamente en la base temporal del verificador.
 
 `scripts/check-categories.cjs` amplía la prueba aislada de `scripts/verify-initial-stock.cjs --electron`: comprueba crear/renombrar, conservar relaciones, validación de rubro-padre, nombres acentuados, conflictos, permisos y filtros combinados desde la ventana. Las peticiones de producto anteriores sin clasificación siguen funcionando, incluso antes de aplicar 005.
 

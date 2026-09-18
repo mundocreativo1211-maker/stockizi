@@ -51,12 +51,14 @@
             <button id="find-code" type="submit">Buscar código</button>
           </form>
           <p id="code-search-status" role="status"></p>
-          <div class="catalog-filters" role="search" aria-label="Buscar productos">
-            <div><label for="product-search">Nombre</label><input id="product-search" type="search" placeholder="Buscar producto" /></div>
+          <form id="catalog-search-form" class="catalog-filters" role="search" aria-label="Buscar productos en toda la base">
+            <div><label for="product-search">Nombre</label><input id="product-search" type="search" maxlength="200" placeholder="Buscar en toda la base" /></div>
             <div><label for="category-filter">Rubro</label><select id="category-filter" disabled><option>Pendiente de conectar</option></select></div>
             <div><label for="subcategory-filter">Subcategoría</label><select id="subcategory-filter" disabled><option>Pendiente de conectar</option></select></div>
+            <button id="search-products" type="submit">Buscar</button>
             <button id="clear-filters" type="button">Limpiar filtros</button>
-          </div>
+          </form>
+          <p id="search-status" role="status"></p>
           <p id="results-summary" role="status"></p>
           <div class="catalog-scroll" tabindex="0" aria-label="Lista de productos"><ul id="products-list"></ul></div>
           <button id="load-more-products" type="button" hidden>Cargar más productos</button>

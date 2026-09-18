@@ -4,6 +4,23 @@ const { fetchProductsPage, validatePage, saveProduct, createProduct } = require(
 const product = { id: '9007199254740993', name: 'Azúcar', costPrice: '1000.00',
   salePrice: '1500.00', markupPercentage: null, stock: '-1.200', unit: 'KILOGRAM', active: true };
 
+test('cliente codifica filtros sin permitir cambiar ruta y valida antes de consultar', async () => {
+  let calls = 0;
+  const fetchImpl = async url => {
+    calls++;
+    const parsed = new URL(url);
+    assert.equal(parsed.pathname, '/api/products');
+    assert.equal(parsed.searchParams.get('name'), 'Caja & azul');
+    assert.equal(parsed.searchParams.get('categoryId'), '2');
+    return { ok: true, json: async () => ({ products: [], nextAfterId: null }) };
+  };
+  assert.equal((await fetchProductsPage('0', { filters: { name: 'Caja & azul', categoryId: '2' }, fetchImpl })).ok, true);
+  for (const filters of [null, [], { name: 12 }, { categoryId: '0' }, { subcategoryId: '2' }, { url: 'https://example.com' }]) {
+    assert.equal((await fetchProductsPage('0', { filters, fetchImpl })).ok, false);
+  }
+  assert.equal(calls, 1);
+});
+
 test('cliente de alta envía POST fijo, valida respuesta y conserva errores seguros', async () => {
   const result = await createProduct({ name: 'Azúcar' }, { fetchImpl: async (url, options) => {
     assert.equal(url, 'http://127.0.0.1:3000/api/products');

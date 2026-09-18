@@ -73,11 +73,17 @@ module.exports.window = async function checkCategoryWindow(page, admin) {
   assert.equal(await page.locator('#product-subcategory').inputValue(), childId);
   await page.locator('#category-filter').selectOption(rootId);
   await page.locator('#subcategory-filter').selectOption(childId);
+  await page.locator('#search-products').click();
+  await page.waitForFunction(() => !document.querySelector('#refresh-products').disabled);
   assert.equal(await page.locator('.product-row').count(), 1);
   await page.locator('#product-search').fill('NO COINCIDE 789');
+  await page.locator('#product-search').press('Enter');
+  await page.waitForFunction(() => !document.querySelector('#refresh-products').disabled);
   assert.equal(await page.locator('.product-row').count(), 0);
   await page.locator('#clear-filters').click();
+  await page.waitForFunction(() => !document.querySelector('#refresh-products').disabled);
   assert.ok(await page.locator('.product-row').count() > 1);
+  await page.getByRole('button', { name: /Alta desde ventana/ }).click();
   await page.locator('#manage-categories').click();
   await page.locator('#category-edit').selectOption(`categories:${rootId}`);
   assert.equal(await page.locator('#category-parent').isDisabled(), true);

@@ -66,6 +66,29 @@ async function withApi(t, query) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
+test('búsqueda parametrizada combina nombre literal y clasificación antes de paginar', async t => {
+  const base = await withApi(t, async (sql, values) => {
+    assert.deepEqual(values, ['23', 101, "azucar %_'", '4', '5']);
+    assert.match(sql, /strpos/);
+    assert.match(sql, /category_id/);
+    assert.match(sql, /subcategory_id/);
+    assert.doesNotMatch(sql, /azucar/);
+    return { rows: [] };
+  });
+  const params = new URLSearchParams({ afterId: '23', name: " ÁZÚCAR %_' ", categoryId: '4', subcategoryId: '5' });
+  assert.equal((await fetch(`${base}/api/products?${params}`)).status, 200);
+});
+
+test('filtros inválidos o repetidos no llegan a SQL', async t => {
+  let calls = 0;
+  const base = await withApi(t, async () => { calls++; return { rows: [] }; });
+  for (const query of ['categoryId=-1', 'subcategoryId=2', 'categoryId=9223372036854775808',
+    'name=a&name=b', 'otro=x', 'name=%00', `name=${'a'.repeat(201)}`]) {
+    assert.equal((await fetch(`${base}/api/products?${query}`)).status, 400);
+  }
+  assert.equal(calls, 0);
+});
+
 test('GET devuelve productos sin convertir decimales ni identificadores a Number', async t => {
   const row = { id: '9007199254740993', name: 'Azúcar', stock: '-1.200', salePrice: '1500.10' };
   const base = await withApi(t, async (sql, values) => {

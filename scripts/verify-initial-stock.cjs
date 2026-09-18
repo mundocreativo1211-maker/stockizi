@@ -150,6 +150,7 @@ const { createApi } = require('../server/app');
         assert.equal(await page.locator('#product-markup').inputValue(), '50.00');
         await require('./check-categories.cjs').window(page, admin);
         await require('./check-codes.cjs').window(page, admin);
+        await require('./check-product-search.cjs')(page, admin, base);
         await require('./check-exit-guard.cjs')(app, page, admin);
         await page.screenshot({ path: path.join(folder, 'new-product.png') });
         assert.deepEqual(errors, []);

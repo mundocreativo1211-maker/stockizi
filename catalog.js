@@ -7,6 +7,9 @@ let hasLoaded = false;
 let saving = false;
 let newRequestId = null;
 let markupError = '';
+let appliedFilters = { name: '', categoryId: '', subcategoryId: '' };
+let individualResult = false;
+let codeNotFound = false;
 const newButton = document.querySelector('#new-product');
 const editable = ['#product-name', '#product-cost-price', '#product-sale-price'];
 const saveButton = document.querySelector('#save-product');
@@ -43,6 +46,8 @@ function updateControls() {
   window.stockiziCategories?.setEnabled(!!(selectedId || newRequestId) && !saving && !loading);
   saveButton.disabled = !dirty() || !valid || saving || loading;
   cancelButton.disabled = !dirty() || saving || loading;
+  document.querySelector('#search-products').disabled = saving || loading;
+  document.querySelector('#clear-filters').disabled = saving || loading;
 }
 
 function validatedDraft() {
@@ -72,8 +77,13 @@ const currency = new Intl.NumberFormat('es-AR', { style: 'currency', currency: '
 const quantity = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 3 });
 const units = { UNIT: 'un.', KILOGRAM: 'kg', METER: 'm', LITER: 'l' };
 
-function normalizeName(value) {
-  return value.trim().toLocaleLowerCase('es-AR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+function requestedFilters() {
+  return { name: search.value.trim(), categoryId: '', subcategoryId: '', ...window.stockiziCategories?.filters() };
+}
+
+function filtersChanged() {
+  document.querySelector('#search-status').textContent = JSON.stringify(requestedFilters()) !== JSON.stringify(appliedFilters)
+    ? 'Filtros pendientes: apretá Buscar. El listado todavía corresponde a la consulta anterior.' : '';
 }
 
 function showDetail() {
@@ -108,11 +118,12 @@ function showDetail() {
 
 function renderCatalog() {
   list.innerHTML = '';
-  const visible = catalog.filter(product => normalizeName(product.name).includes(normalizeName(search.value)) &&
-    (window.stockiziCategories?.matches(product) ?? true));
-  summary.textContent = !hasLoaded ? 'Todavía no hay datos cargados.'
-    : catalog.length === 0 ? 'La base no tiene productos.'
-      : `Mostrando ${visible.length} de ${catalog.length} productos cargados.${nextAfterId ? ' La búsqueda abarca solo los cargados; hay más páginas.' : ''}`;
+  const visible = codeNotFound ? [] : catalog;
+  summary.textContent = codeNotFound ? 'Sin resultados para ese código.'
+    : !hasLoaded ? 'Todavía no hay datos cargados.'
+    : individualResult ? 'Producto consultado o guardado. Usá Buscar o Actualizar para volver al listado.'
+    : catalog.length === 0 ? (Object.values(appliedFilters).some(Boolean) ? 'No hay productos que coincidan con la búsqueda.' : 'La base no tiene productos.')
+      : `Mostrando ${visible.length} resultados de la consulta en toda la base.${nextAfterId ? ' Hay más resultados: usá Cargar más.' : ''}`;
   for (const product of visible) {
     const row = document.createElement('li');
     const button = document.createElement('button');
@@ -130,11 +141,12 @@ function renderCatalog() {
     row.append(button);
     list.append(row);
   }
-  moreButton.hidden = nextAfterId === null;
+  moreButton.hidden = codeNotFound || nextAfterId === null;
 }
 
-async function loadCatalog(append = false) {
-  if (!canLeave() || (append && nextAfterId === null)) return;
+async function loadCatalog(append = false, filters = requestedFilters()) {
+  if (!canLeave() || (append && (codeNotFound || nextAfterId === null))) return;
+  const queryFilters = append ? { ...appliedFilters } : { ...filters };
   loading = true;
   updateControls();
   refreshButton.disabled = true;
@@ -144,7 +156,7 @@ async function loadCatalog(append = false) {
   connectionStatus.className = '';
   try {
     if (!window.stockizi?.listProducts) throw new Error('Puente no disponible');
-    const result = await window.stockizi.listProducts(append ? nextAfterId : '0');
+    const result = await window.stockizi.listProducts(append ? nextAfterId : '0', queryFilters);
     if (!result.ok) throw new Error('No se pudo consultar');
     await window.stockiziCategories?.refresh();
     if (!append) catalog.length = 0;
@@ -154,10 +166,15 @@ async function loadCatalog(append = false) {
       else catalog[index] = product;
     }
     nextAfterId = result.nextAfterId;
+    codeNotFound = false;
+    document.querySelector('#code-search-status').textContent = '';
+    appliedFilters = queryFilters;
+    individualResult = false;
     hasLoaded = true;
     if (!catalog.some(product => product.id === selectedId)) selectedId = null;
     showDetail();
     renderCatalog();
+    filtersChanged();
     connectionStatus.textContent = 'Datos consultados en PostgreSQL. Actualizar vuelve a consultar.';
   } catch {
     connectionStatus.className = 'connection-error';
@@ -238,7 +255,13 @@ form.addEventListener('submit', async event => {
     else catalog[index] = result.product;
     selectedId = result.product.id;
     newRequestId = null;
-    if (creating) { search.value = ''; window.stockiziCategories?.clearFilters(); }
+    // Un alta o edición puede dejar de coincidir con la consulta. Mostrar solo
+    // el producto confirmado evita mezclarlo con páginas de otro filtro.
+    catalog.splice(0, catalog.length, result.product);
+    nextAfterId = null;
+    individualResult = true;
+    codeNotFound = false;
+    document.querySelector('#code-search-status').textContent = '';
     showDetail();
     renderCatalog();
     detailStatus.textContent = creating ? 'Producto guardado. Su movimiento Stock inicial quedó registrado.' : 'Cambios guardados en PostgreSQL.';
@@ -257,15 +280,27 @@ newButton.addEventListener('click', () => {
   showDetail();
   renderCatalog();
 });
-search.addEventListener('input', renderCatalog);
-document.querySelector('#clear-filters').addEventListener('click', () => { search.value = ''; window.stockiziCategories?.clearFilters(); renderCatalog(); });
+search.addEventListener('input', filtersChanged);
+document.querySelector('#catalog-search-form').addEventListener('submit', event => {
+  event.preventDefault();
+  return loadCatalog();
+});
+document.querySelector('#clear-filters').addEventListener('click', () => {
+  if (!canLeave()) return;
+  search.value = ''; window.stockiziCategories?.clearFilters(); filtersChanged(); return loadCatalog();
+});
 refreshButton.addEventListener('click', () => loadCatalog());
 moreButton.addEventListener('click', () => loadCatalog(true));
 window.stockiziExit?.register(() => ({ dirty: dirty(), busy: saving }));
-window.stockiziCategories?.init(updateControls, renderCatalog, canLeave);
+window.stockiziCategories?.init(updateControls, filtersChanged, canLeave);
 window.stockiziCodes?.init({
   canLeave,
   getProduct: () => catalog.find(product => product.id === selectedId),
+  notFound() {
+    // Ocultar resultados no borra el producto que respalda la ficha.
+    codeNotFound = true;
+    renderCatalog();
+  },
   setBusy(value) {
     loading = value;
     refreshButton.disabled = value;
@@ -273,13 +308,16 @@ window.stockiziCodes?.init({
     updateControls();
   },
   found(product) {
-    const index = catalog.findIndex(item => item.id === product.id);
-    if (index === -1) catalog.push(product);
-    else catalog[index] = product;
+    codeNotFound = false;
+    catalog.splice(0, catalog.length, product);
+    nextAfterId = null;
+    individualResult = true;
     hasLoaded = true;
     selectedId = product.id;
     search.value = '';
     window.stockiziCategories?.clearFilters();
+    appliedFilters = requestedFilters();
+    filtersChanged();
     showDetail(); renderCatalog();
     const selectedRow = list.querySelector('[aria-pressed="true"]');
     if (selectedRow) list.parentElement.scrollTop = selectedRow.offsetTop - list.parentElement.offsetTop;

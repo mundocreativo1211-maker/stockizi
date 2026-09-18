@@ -1,8 +1,22 @@
 const PAGE_SIZE = 100;
+const { productFilters } = require('../product-filters');
 // to_jsonb permite leer los IDs opcionales sin romper la consulta antes de
 // aplicar 005. Solo las operaciones que envían clasificación requieren 005.
 
-async function listProducts(database, afterId = '0') {
+async function listProducts(database, afterId = '0', input = {}) {
+  const filters = productFilters(input);
+  const values = [afterId, PAGE_SIZE + 1];
+  const conditions = [];
+  if (filters.name) {
+    values.push(filters.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
+    // strpos busca texto literal: % y _ no se convierten en comodines.
+    conditions.push(`strpos(lower(regexp_replace(normalize(name, NFD), '[\u0300-\u036f]', '', 'g')), $${values.length}) > 0`);
+  }
+  for (const [key, column] of [['categoryId', 'category_id'], ['subcategoryId', 'subcategory_id']]) {
+    if (!filters[key]) continue;
+    values.push(filters[key]);
+    conditions.push(`to_jsonb(products)->>'${column}' = $${values.length}`);
+  }
   // $1 y $2 son parámetros: los valores no se concatenan al código SQL.
   const result = await database.query(`
     SELECT id::text AS id, name,
@@ -13,10 +27,11 @@ async function listProducts(database, afterId = '0') {
            to_jsonb(products)->>'subcategory_id' AS "subcategoryId"
     FROM public.products
     WHERE id > $1
+    ${conditions.map(condition => `AND ${condition}`).join('\n')}
     -- Ordenar por el BIGINT de la tabla, no por el alias id convertido a texto.
     ORDER BY public.products.id
     LIMIT $2
-  `, [afterId, PAGE_SIZE + 1]);
+  `, values);
 
   const products = result.rows.slice(0, PAGE_SIZE);
   return {
